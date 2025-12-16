@@ -45,6 +45,7 @@ create table if not exists customers (
   first_name text not null,
   last_name text not null,
   phone text not null,
+  phone_normalized text not null,
   email text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -124,6 +125,7 @@ create table if not exists payments (
 
 -- Indexes
 create index if not exists idx_customers_salon_phone_last_name on customers (salon_id, phone, lower(last_name));
+create index if not exists idx_customers_salon_phone_normalized_last on customers (salon_id, phone_normalized, lower(last_name));
 create index if not exists idx_bookings_customer on bookings (customer_id);
 create index if not exists idx_bookings_salon_start on bookings (salon_id, start_time);
 create index if not exists idx_bookings_salon_customer_start on bookings (salon_id, customer_id, start_time);

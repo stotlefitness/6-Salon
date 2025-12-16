@@ -6,7 +6,49 @@ create extension if not exists "pgcrypto";
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'booking_status') then
-    create type booking_status as enum ('pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'no_show');
+    create type booking_status as enum ('scheduled', 'checked_in', 'in_service', 'completed', 'cancelled', 'no_show');
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'scheduled' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'scheduled';
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'checked_in' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'checked_in';
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'in_service' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'in_service';
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'completed' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'completed';
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'cancelled' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'cancelled';
+  end if;
+
+  if not exists (
+    select 1 from pg_enum
+    where enumlabel = 'no_show' and enumtypid = 'booking_status'::regtype
+  ) then
+    alter type booking_status add value 'no_show';
   end if;
 
   if not exists (select 1 from pg_type where typname = 'payment_status') then
@@ -64,9 +106,10 @@ create table if not exists bookings (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid references customers(id) on delete set null,
   stylist_id uuid references stylists(id) on delete set null,
-  scheduled_start timestamptz not null,
-  scheduled_end timestamptz,
-  status booking_status not null default 'pending',
+  start_time timestamptz not null,
+  end_time timestamptz,
+  status booking_status not null default 'scheduled',
+  checked_in_at timestamptz,
   notes text,
   total_amount_cents integer not null default 0 check (total_amount_cents >= 0),
   created_at timestamptz not null default now(),

@@ -7,61 +7,18 @@ import {
   normalizePhone,
 } from "@/lib/validation/bookings";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-server";
+import {
+  BOOKING_SELECT_COLUMNS,
+  BookingRow,
+  enrichBookings,
+  kioskError,
+} from "./helpers";
 
-type BookingRow = {
-  id: string;
-  service_id: string;
-  stylist_id: string | null;
-  start_time: string;
-  end_time: string | null;
-  status: string;
-  checked_in_at: string | null;
-};
-
-async function enrichBookings(
-  bookings: BookingRow[],
-  supabase: ReturnType<typeof createSupabaseServiceRoleClient>
-) {
-  const serviceIds = Array.from(
-    new Set(bookings.map((b) => b.service_id).filter(Boolean))
-  );
-  const stylistIds = Array.from(
-    new Set(bookings.map((b) => b.stylist_id).filter(Boolean)) as Set<string>
-  );
-
-  const [servicesRes, stylistsRes] = await Promise.all([
-    serviceIds.length
-      ? supabase.from("services").select("id, name").in("id", serviceIds)
-      : Promise.resolve({ data: [], error: null }),
-    stylistIds.length
-      ? supabase
-          .from("stylists")
-          .select("id, first_name, last_name")
-          .in("id", stylistIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  const servicesMap =
-    servicesRes.data?.reduce<Record<string, string>>((acc, row) => {
-      acc[row.id] = row.name;
-      return acc;
-    }, {}) ?? {};
-  const stylistMap =
-    stylistsRes.data?.reduce<Record<string, string>>((acc, row) => {
-      acc[row.id] = `${row.first_name} ${row.last_name}`.trim();
-      return acc;
-    }, {}) ?? {};
-
-  return bookings.map((b) => ({
-    id: b.id,
-    startTime: b.start_time,
-    endTime: b.end_time,
-    status: b.status,
-    serviceName: servicesMap[b.service_id],
-    stylistName: b.stylist_id ? stylistMap[b.stylist_id] : null,
-    checkedInAt: b.checked_in_at,
-  }));
-}
+const GENERIC_FRONT_DESK = "Something went wrong. Please see the front desk.";
+const NO_CUSTOMER_MSG =
+  "We couldn't find your profile. Please see the front desk.";
+const NO_BOOKING_TODAY_MSG =
+  "We couldn't find a booking for today. Please see the front desk.";
 
 export async function POST(request: Request) {
   const supabase = createSupabaseServiceRoleClient();
@@ -70,10 +27,7 @@ export async function POST(request: Request) {
   const parsed = checkInSchema.safeParse(rawBody);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return kioskError(GENERIC_FRONT_DESK, 400);
   }
 
   const { salonId } = parsed.data;
@@ -83,34 +37,31 @@ export async function POST(request: Request) {
     normalizedPhone = normalizePhone(parsed.data.phone);
     normalizedLastName = normalizeLastName(parsed.data.lastName);
   } catch (err) {
-    return NextResponse.json(
-      { error: (err as Error).message ?? "Invalid phone" },
-      { status: 400 }
-    );
+    return kioskError(GENERIC_FRONT_DESK, 400);
   }
 
   const { data: customers, error: customerError } = await supabase
     .from("customers")
     .select("id, first_name, last_name")
     .eq("salon_id", salonId)
-    .eq("phone", normalizedPhone)
+    .eq("phone_normalized", normalizedPhone)
     .ilike("last_name", normalizedLastName);
 
   if (customerError) {
-    return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+    return kioskError();
   }
 
   if (!customers || customers.length === 0) {
     return NextResponse.json({
       status: "NO_CUSTOMER",
-      message: "We couldn't find a matching profile.",
+      message: NO_CUSTOMER_MSG,
     });
   }
 
   if (customers.length > 1) {
     return NextResponse.json({
       status: "NO_CUSTOMER",
-      message: "Multiple matching customers found; please see the front desk.",
+      message: NO_CUSTOMER_MSG,
     });
   }
 
@@ -119,9 +70,7 @@ export async function POST(request: Request) {
 
   const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
-    .select(
-      "id, service_id, stylist_id, start_time, end_time, status, checked_in_at"
-    )
+    .select(BOOKING_SELECT_COLUMNS)
     .eq("salon_id", salonId)
     .eq("customer_id", customer.id)
     .gte("start_time", start.toISOString())
@@ -129,16 +78,13 @@ export async function POST(request: Request) {
     .in("status", ["scheduled", "checked_in"]);
 
   if (bookingsError) {
-    return NextResponse.json(
-      { error: "Could not load bookings" },
-      { status: 500 }
-    );
+    return kioskError();
   }
 
   if (!bookings || bookings.length === 0) {
     return NextResponse.json({
       status: "NO_BOOKING_TODAY",
-      message: "We don't see a booking for today.",
+      message: NO_BOOKING_TODAY_MSG,
     });
   }
 
@@ -149,26 +95,54 @@ export async function POST(request: Request) {
   }
 
   const booking = bookings[0] as BookingRow;
-  const { data: updated, error: updateError } = await supabase
+  if (booking.status === "checked_in") {
+    return NextResponse.json({
+      status: "CHECKED_IN",
+      booking: enriched[0],
+    });
+  }
+
+  const { data: updatedRows, error: updateError } = await supabase
     .from("bookings")
     .update({
       status: "checked_in",
       checked_in_at: new Date().toISOString(),
     })
     .eq("id", booking.id)
-    .select(
-      "id, service_id, stylist_id, start_time, end_time, status, checked_in_at"
-    )
-    .single();
+    .eq("status", "scheduled")
+    .select(BOOKING_SELECT_COLUMNS);
 
-  if (updateError || !updated) {
-    return NextResponse.json(
-      { error: "Failed to check in" },
-      { status: 500 }
-    );
+  if (updateError) {
+    return kioskError();
   }
 
-  const [enrichedBooking] = await enrichBookings([updated as BookingRow], supabase);
+  const updated = updatedRows?.[0] as BookingRow | undefined;
+
+  if (!updated) {
+    const { data: latest, error: latestError } = await supabase
+      .from("bookings")
+      .select(BOOKING_SELECT_COLUMNS)
+      .eq("id", booking.id)
+      .single();
+
+    if (!latestError && latest?.status === "checked_in") {
+      const [alreadyCheckedIn] = await enrichBookings(
+        [latest as BookingRow],
+        supabase
+      );
+      return NextResponse.json({
+        status: "CHECKED_IN",
+        booking: alreadyCheckedIn,
+      });
+    }
+
+    return kioskError();
+  }
+
+  const [enrichedBooking] = await enrichBookings(
+    [updated as BookingRow],
+    supabase
+  );
 
   return NextResponse.json({
     status: "CHECKED_IN",

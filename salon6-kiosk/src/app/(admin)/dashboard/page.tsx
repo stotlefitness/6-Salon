@@ -1,7 +1,8 @@
 "use client";
 
 import { useStaff } from "@/lib/staff-context";
-import { useEffect, useMemo, useState } from "react";
+import { supabaseBrowserClient } from "@/lib/supabase-browser";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 type BookingRow = {
   id: string;
@@ -11,31 +12,60 @@ type BookingRow = {
 export default function AdminDashboardPage() {
   const staff = useStaff();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/admin/bookings");
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error || "Failed to load bookings");
-          return;
-        }
-        setBookings(json.bookings ?? []);
-      } catch (err) {
-        setError((err as Error).message);
+  const load = useEffectEvent(async () => {
+    try {
+      const res = await fetch("/api/admin/bookings");
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Failed to load bookings");
+        return;
       }
-    };
+      setBookings(json.bookings ?? []);
+      setCounts(json.counts ?? {});
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  });
+
+  useEffect(() => {
     load();
   }, []);
 
+  useEffect(() => {
+    const channel = supabaseBrowserClient
+      .channel(`bookings-${staff.salonId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookings",
+          filter: `salon_id=eq.${staff.salonId}`,
+        },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseBrowserClient.removeChannel(channel);
+    };
+  }, [staff.salonId]);
+
   const statusCounts = useMemo(() => {
+    if (Object.keys(counts).length > 0) {
+      return counts;
+    }
     return bookings.reduce<Record<string, number>>((acc, row) => {
       acc[row.status] = (acc[row.status] || 0) + 1;
       return acc;
     }, {});
-  }, [bookings]);
+  }, [bookings, counts]);
 
   return (
     <main className="flex min-h-screen flex-col gap-6 bg-white p-8 text-zinc-900">

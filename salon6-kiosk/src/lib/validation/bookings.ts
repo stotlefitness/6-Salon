@@ -67,8 +67,11 @@ function parseOffsetMinutes(timeZone: string, at: Date) {
   return hours * 60 + (hours >= 0 ? minutes : -minutes);
 }
 
-export function getTodayRange(timeZone: string = DEFAULT_TIMEZONE) {
-  const now = new Date();
+export function getTodayRange(
+  timeZone: string = DEFAULT_TIMEZONE,
+  reference: Date = new Date()
+) {
+  const now = reference;
   const dateParts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",

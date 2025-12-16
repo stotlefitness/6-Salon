@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const SALON_ID = "00000000-0000-0000-0000-000000000001";
+const SALON_ID =
+  process.env.NEXT_PUBLIC_KIOSK_SALON_ID ??
+  "00000000-0000-0000-0000-000000000001";
+const FRONT_DESK_MESSAGE = "Something went wrong. Please see the front desk.";
 
 type BookingSummary = {
   id: string;
@@ -63,12 +66,12 @@ export default function CheckInPage() {
       });
       const json = (await res.json()) as ApiResult;
       if (!res.ok) {
-        setError("error" in json ? json.error : "Something went wrong.");
+        setError("error" in json ? json.error : FRONT_DESK_MESSAGE);
         return;
       }
       setResult(json);
     } catch (err) {
-      setError((err as Error).message);
+      setError(FRONT_DESK_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -85,12 +88,12 @@ export default function CheckInPage() {
       });
       const json = (await res.json()) as ApiResult;
       if (!res.ok) {
-        setError("error" in json ? json.error : "Unable to check in.");
+        setError("error" in json ? json.error : FRONT_DESK_MESSAGE);
         return;
       }
       setResult(json);
     } catch (err) {
-      setError((err as Error).message);
+      setError(FRONT_DESK_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -180,7 +183,9 @@ export default function CheckInPage() {
                 </p>
                 <p className="text-sm text-zinc-600">
                   {result.message ||
-                    "Please see the front desk if you need help."}
+                    (result.status === "NO_CUSTOMER"
+                      ? "We couldn't find your profile. Please see the front desk."
+                      : "We couldn't find a booking for today. Please see the front desk.")}
                 </p>
               </div>
             ) : null}

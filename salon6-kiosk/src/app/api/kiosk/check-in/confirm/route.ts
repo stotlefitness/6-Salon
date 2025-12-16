@@ -5,6 +5,14 @@ import {
   getTodayRange,
 } from "@/lib/validation/bookings";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-server";
+import {
+  BOOKING_SELECT_COLUMNS,
+  BookingRow,
+  enrichBookings,
+  kioskError,
+} from "../helpers";
+
+const GENERIC_FRONT_DESK = "Something went wrong. Please see the front desk.";
 
 export async function POST(request: Request) {
   const supabase = createSupabaseServiceRoleClient();
@@ -12,10 +20,7 @@ export async function POST(request: Request) {
   const parsed = confirmCheckInSchema.safeParse(rawBody);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return kioskError(GENERIC_FRONT_DESK, 400);
   }
 
   const { salonId, bookingId } = parsed.data;
@@ -23,9 +28,7 @@ export async function POST(request: Request) {
   const { start, end } = getTodayRange(DEFAULT_TIMEZONE);
   const { data: booking, error } = await supabase
     .from("bookings")
-    .select(
-      "id, salon_id, customer_id, stylist_id, service_id, start_time, end_time, status, checked_in_at"
-    )
+    .select(`${BOOKING_SELECT_COLUMNS}, salon_id, customer_id`)
     .eq("id", bookingId)
     .eq("salon_id", salonId)
     .in("status", ["scheduled", "checked_in"])
@@ -34,10 +37,17 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !booking) {
-    return NextResponse.json(
-      { error: "Booking not found or not eligible" },
-      { status: 404 }
-    );
+    return kioskError(GENERIC_FRONT_DESK, 404);
+  }
+
+  const bookingRow = booking as BookingRow;
+
+  if (bookingRow.status === "checked_in") {
+    const [enriched] = await enrichBookings([bookingRow], supabase);
+    return NextResponse.json({
+      status: "CHECKED_IN",
+      booking: enriched,
+    });
   }
 
   const { data: updated, error: updateError } = await supabase
@@ -47,28 +57,38 @@ export async function POST(request: Request) {
       checked_in_at: new Date().toISOString(),
     })
     .eq("id", booking.id)
-    .select(
-      "id, service_id, stylist_id, start_time, end_time, status, checked_in_at"
-    )
-    .single();
+    .eq("status", "scheduled")
+    .select(BOOKING_SELECT_COLUMNS);
 
-  if (updateError || !updated) {
-    return NextResponse.json(
-      { error: "Failed to check in" },
-      { status: 500 }
-    );
+  if (updateError) {
+    return kioskError();
+  }
+
+  const updatedBooking = (updated?.[0] as BookingRow) ?? null;
+
+  if (!updatedBooking) {
+    const { data: latest, error: latestError } = await supabase
+      .from("bookings")
+      .select(BOOKING_SELECT_COLUMNS)
+      .eq("id", booking.id)
+      .single();
+
+    if (!latestError && latest?.status === "checked_in") {
+      const [alreadyCheckedIn] = await enrichBookings(
+        [latest as BookingRow],
+        supabase
+      );
+      return NextResponse.json({
+        status: "CHECKED_IN",
+        booking: alreadyCheckedIn,
+      });
+    }
+
+    return kioskError();
   }
 
   return NextResponse.json({
     status: "CHECKED_IN",
-    booking: {
-      id: updated.id,
-      startTime: updated.start_time,
-      endTime: updated.end_time,
-      status: updated.status,
-      checkedInAt: updated.checked_in_at,
-      serviceId: updated.service_id,
-      stylistId: updated.stylist_id,
-    },
+    booking: (await enrichBookings([updatedBooking], supabase))[0],
   });
 }
