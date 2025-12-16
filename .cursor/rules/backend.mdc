@@ -1,0 +1,98 @@
+---
+alwaysApply: true
+---
+
+# Backend Rules
+
+## Backend Choice
+
+- Default backend: **Supabase** for:
+  - Database (Postgres),
+  - Auth,
+  - Storage (files, images).
+- Do NOT introduce other backends (Firebase, ad-hoc SQL server, etc.) unless:
+  - The repo already uses them, AND
+  - Project docs explicitly say to extend them.
+
+## When to Use Convex
+
+- Use Convex only if:
+  - There is an existing `/convex` directory and convex.json, OR
+  - BACKEND.md / ARCHITECTURE.md explicitly says Convex is primary.
+- Never mix Convex and Supabase for the same feature without a documented migration plan.
+
+## Supabase Conventions
+
+### Client Utilities
+
+- All Supabase access goes through shared client utilities (e.g., `lib/supabase-server.ts`, `lib/supabase-browser.ts`).
+- Do not instantiate new Supabase clients in arbitrary files; import from shared utilities.
+
+### Data Access Pattern
+
+- React components should not talk directly to Supabase.
+- All reads/writes flow through:
+  - Server components,
+  - Server actions,
+  - Or API routes (e.g., `app/api/.../route.ts`).
+- Prefer typed queries based on a generated database types file (e.g., `types/database.ts`).
+
+### Schema Design
+
+- Tables use snake_case, plural names (e.g., `bookings`, `calls`, `orders`, `products`, `escalations`).
+- Each table should have:
+  - `id` primary key (uuid preferred),
+  - `created_at timestamptz default now()`,
+  - `updated_at timestamptz default now()`,
+  - Proper foreign keys with `on delete cascade` where logically appropriate.
+
+### Migrations
+
+- All schema changes are done via migrations:
+  - Migrations live in `supabase/migrations/`.
+  - Never modify old migrations; always add new ones.
+
+### Row Level Security (RLS)
+
+- RLS should be enabled by default in production tables.
+- Every table needs explicit policies:
+  - User-scoped data: policies based on `auth.uid()` and relevant foreign keys.
+  - Staff/admin data: policies based on a role field (e.g., `role IN ('owner','manager')`).
+- If a table intentionally has no RLS (e.g., public config), add a comment in the migration explaining why.
+
+### Auth & Roles
+
+- Use Supabase Auth or the repo's chosen auth provider for identity.
+- Reflect roles in related tables (e.g., `staff` with `role`, `location_id`).
+- Server routes performing privileged operations must:
+  - Fetch current user,
+  - Check role/permissions,
+  - Return 403 when unauthorized.
+
+### API Route Conventions
+
+- API routes live under `app/api/**/route.ts` (Next.js-style).
+- Standard pattern:
+  - Validate input (e.g., Zod),
+  - Check auth/role,
+  - Perform Supabase access via server utility,
+  - Log and handle errors,
+  - Return typed JSON responses.
+
+## Convex Conventions (When Applicable)
+
+- All backend logic resides under `/convex` as `query` and `mutation` functions.
+- Typed access from React uses Convex hooks (`useQuery`, `useMutation`).
+- Do not use ad-hoc fetch calls to Convex; always go through the generated client.
+- Keep Convex schema definitions centralized (e.g., `convex/schema.ts`) and updated alongside queries/mutations.
+
+## General Backend Rules
+
+- Prefer simple, explicit data models over clever abstractions.
+- Avoid "magic strings" for table/column names; centralize them in types or constants where practical.
+- For any new feature touching data:
+  1. Add/update the migration,
+  2. Update the types file (`types/database.ts` or Convex schema),
+  3. Add tests or a small seed/demo script if appropriate.
+- Log backend failures with sufficient context (operation, IDs, shape) but never log secrets or raw PII.
+- Prefer a few well-indexed queries over many chatty round-trips.

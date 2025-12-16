@@ -1,0 +1,50 @@
+---
+alwaysApply: false
+---
+# Project Rules
+
+## Stack & Versions
+- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, ESLint + Prettier.
+- Backend: Supabase (Postgres/Auth/Storage) only; no other backends.
+- Payments: Stripe Checkout + webhooks.
+- Node 20.9+ recommended (Next 16 tooling warns on older Node).
+
+## App Structure
+- Route groups: `(kiosk)` for iPad public flows, `(admin)` for internal staff.
+- API routes live under `app/api/**` (kiosk, admin, stripe/webhook).
+- Shared logic in `src/lib/**` (supabase clients, stripe client, auth, validation).
+- DB source of truth in `db/schema.sql`; seed data in `db/seed.sql`.
+- Scripts `scripts/migrate.mjs` and `scripts/seed.mjs` stubbed; extend instead of ad-hoc SQL.
+
+## UI & Styling
+- Tailwind utility-first; keep className readable (layout | spacing | typography | color).
+- Kiosk/admin pages should stay minimal and touch-friendly; prefer semantic elements.
+- Avoid introducing new colors outside Tailwind tokens unless aligned with palette.
+
+## Data Access & API
+- Use `createSupabaseServerClient` for server-side access; `supabaseBrowserClient` only in admin client code.
+- Do not instantiate Supabase clients ad-hoc; import from `src/lib`.
+- Keep side effects and DB calls in server routes/actions, not deep in UI components.
+- Stripe: use `getStripeClient` helper; webhook handler under `app/api/stripe/webhook`.
+
+## Auth & Roles
+- Kiosk is unauthenticated; admin requires staff auth/roles (implement via `lib/auth.ts`).
+- Enforce permissions in server routes before performing mutations.
+
+## Validation & Errors
+- Use Zod schemas in `src/lib/validation/**` for request bodies (bookings, checkout).
+- Return clear JSON errors; avoid silent failures.
+
+## Environment & Secrets
+- `.env.local` / `.env.test` hold Supabase + Stripe keys; never commit real secrets.
+- Ensure `NEXT_PUBLIC_*` keys are only for browser-safe values; service role stays server-side.
+
+## Patterns to Prefer
+- Small, focused files; reuse existing helpers before adding new ones.
+- Add migrations to `db/schema.sql` and automate via scripts instead of manual DB edits.
+- Keep kiosk/admin separation clear in routing and data flow.
+
+## Patterns to Avoid
+- No multi-location logic yet; keep schema and flows single-location.
+- Avoid bypassing validation or auth checks in API routes.
+- Do not mix direct fetch calls to Supabase/Stripe; always go through shared helpers.

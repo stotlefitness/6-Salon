@@ -1,0 +1,36 @@
+---
+alwaysApply: true
+---
+
+# Modularity & File Length
+
+## File Size & Responsibilities
+
+- Aim to keep source files focused on a single responsibility.
+- Loose guideline (not strict):
+  - UI component files: ~200-300 lines before considering extraction.
+  - Service/logic files: ~300-400 lines before considering separating concerns.
+
+## When to Extract
+
+- Consider extracting a new function/module/component when:
+  - A block of code is conceptually distinct (e.g., formatting stats, building an export payload).
+  - It is reused or very likely to be reused.
+  - It makes the parent function difficult to read due to nesting or branching.
+
+## Composition over Nesting
+
+- Prefer composing smaller functions/components over deeply nested logic.
+- When conditions/branches get complex:
+  - Extract them into helpers that describe why, not just what.
+
+## Avoid Over-Fragmentation
+
+- Do NOT create tiny files for trivial, single-use helpers.
+- A new file should represent a meaningful concept in the domain or UI and be worth rediscovering later.
+
+## Diffs & Change Scope
+
+- Keep diffs small and localized when modifying existing files.
+- If a larger structural cleanup is needed:
+  - Consider a dedicated refactor pass, separate from new features, with a clear description.

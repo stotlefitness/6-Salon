@@ -1,0 +1,49 @@
+---
+alwaysApply: true
+---
+
+# Research & Context Guidelines
+
+## Repo Research Before Coding
+
+- Before implementing a non-trivial change, always scan the repo for similar patterns.
+
+## Search for Similar Patterns
+
+- Use repository search for:
+  - The feature or domain term (e.g., "booking", "order", "invoice", "kiosk").
+  - Component or module names that sound related.
+  - Table/model names if touching the database.
+- Prefer copying the approach of an existing, working feature over inventing a new pattern.
+
+## Honor Existing Abstractions
+
+- If there is already:
+  - A service layer for API calls,
+  - A hooks file for shared UI behavior,
+  - A utils/helpers module for common logic,
+- Then:
+  - Add to or reuse those abstractions instead of duplicating logic.
+
+## Understand the Data Flow
+
+- Before changing data-related code, answer:
+  - Where does this data originate? (DB, external API, config, user inputs)
+  - Where is it transformed?
+  - Where is it consumed?
+- If unclear:
+  - Trace relevant types/interfaces/models.
+  - Respect existing validation rules and domain constraints.
+
+## Version & Dependency Awareness
+
+- Do NOT assume the repo uses the latest version of any library or framework.
+- For version-specific behavior (Next.js, Tailwind, React, etc.):
+  - Confirm versions via package.json or lockfiles.
+  - Match patterns to the versions actually in use.
+
+## When You're Unsure
+
+- If there is no clear precedent in the codebase:
+  - Choose a simple, widely-known pattern for the stack.
+  - Leave a small comment or TODO noting the decision and that no precedent existed.

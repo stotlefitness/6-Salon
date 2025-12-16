@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+
+# UI & Tailwind Rules
+
+## General UI Principles
+
+- Default to clean, minimal UI with clear hierarchy.
+- Aim for one primary action per view when possible; de-emphasize secondary actions.
+- Prioritize legibility:
+  - Adequate spacing (padding/margin),
+  - Clear type scale (e.g., `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`).
+
+## Tailwind Usage
+
+- Use Tailwind utility classes for styling in React/Next components.
+- Avoid large custom CSS files unless there is a clear shared pattern.
+- Prefer composing Tailwind utilities directly over heavy use of `@apply`.
+
+## ClassName Organization
+
+- Keep `className` values readable by roughly grouping utilities:
+  - Layout (e.g., `flex`, `grid`, `gap-*`),
+  - Spacing (e.g., `p-*`, `m-*`),
+  - Typography (e.g., `text-*`, `font-*`),
+  - Color/border (e.g., `bg-*`, `text-*`, `border-*`, `shadow-*`).
+
+## Design Tokens & Colors
+
+- Prefer project-defined color tokens (Tailwind config, CSS variables) over ad-hoc hex values.
+- Maintain consistent background/text/accent colors to match the brand.
+- Avoid introducing brand-new colors without aligning them with the existing palette.
+
+## Layout & Responsiveness
+
+- Use Tailwind's responsive utilities (`sm:`, `md:`, `lg:`, `xl:`) rather than manual media queries when possible.
+- Common pattern:
+  - Mobile: stacked layouts (`flex-col`, `grid-cols-1`),
+  - Desktop: split layouts (`md:grid-cols-2`, `lg:grid-cols-3`, etc.).
+- Ensure primary actions are easily tappable on mobile (sufficient height and spacing).
+
+## Components & Reuse
+
+- When a UI pattern appears in multiple places (cards, buttons, form layouts), consider extracting a reusable component.
+- Keep components focused; avoid god components that handle unrelated responsibilities.
+- Use existing components as reference for styling and behavior to maintain visual consistency.
+
+## Accessibility
+
+- Use semantic HTML elements where possible (`button`, `nav`, `header`, `main`, etc.).
+- Ensure interactive elements have visible focus states (Tailwind `ring` utilities, `focus:outline-none focus:ring-2`).
+- Provide appropriate ARIA labels when semantic HTML is insufficient.
+- Maintain sufficient color contrast ratios for text and interactive elements.
+- Ensure keyboard navigation works for all interactive elements.

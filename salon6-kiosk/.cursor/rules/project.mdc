@@ -1,0 +1,12 @@
+# Project Rules (salon6-kiosk)
+
+- Stack: Next.js App Router (TypeScript), Tailwind, Supabase (Postgres/Auth/Storage), Stripe (Checkout + webhooks).
+- Surfaces: `(kiosk)` route group for iPad kiosk, `(admin)` route group for staff.
+- API: all server actions live under `app/api/**` and should go through shared Supabase/Stripe libs.
+- Data: `db/schema.sql` is the source of truth; update via migrations, not ad-hoc SQL.
+- Clients: use `createSupabaseServerClient` server-side and `supabaseBrowserClient` on the client.
+- Auth: kiosk is unauthenticated; admin requires staff auth/roles (implement in `lib/auth.ts`).
+- Validation: use Zod schemas in `src/lib/validation/**` for requests.
+- Env: `.env.local` / `.env.test` carry Supabase + Stripe keys; keep secrets out of git.
+
+

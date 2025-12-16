@@ -1,0 +1,80 @@
+---
+alwaysApply: true
+---
+
+# Foundation Rules
+
+## Mindset
+
+- Treat the repository as a living system, not a pile of snippets.
+- Prioritize maintainability, clarity, and consistency over clever one-liners.
+- Assume there are existing patterns worth following before inventing new ones.
+
+## Communication
+
+- For non-trivial changes, briefly explain reasoning in comments or commit messages when appropriate.
+- When behavior is ambiguous, prefer a small, clearly-scoped change plus a TODO, rather than a large speculative refactor.
+
+## Consistency
+
+- Match the existing conventions of the repo:
+  - Language style (TypeScript vs JavaScript, Python type hints or not, etc.).
+  - Naming patterns (camelCase functions, PascalCase components, etc.).
+  - File organization (domain-based vs layer-based).
+- When in doubt, copy the style of the nearest similar, production-used file.
+
+## Safety
+
+- Avoid destructive operations (deleting files, removing features) unless explicitly requested.
+- When refactoring, keep behavior identical unless the request clearly calls for behavior change.
+- If a change could break production paths, surface that risk clearly in your explanation.
+
+## Decision-Making
+
+- Default to the smallest coherent change that solves the problem.
+- Prefer extending existing patterns over introducing new architectural ideas.
+- Propose refactors only when:
+  - The current code is blocking the requested change, or
+  - There is obvious duplication that will rapidly worsen if left alone.
+
+## When Adding a Feature
+
+- Before writing code:
+  1. Identify the layers involved: UI/components, API/backend, Data model/DB/schema, Tests/tooling.
+  2. Decide the minimum surface area that must change.
+  3. Reuse existing primitives (helpers, components, hooks, services) whenever possible.
+
+## Introducing New Files
+
+- Only create a new file when:
+  - The logic cannot be cleanly expressed in an existing file without making it too large or unfocused, or
+  - The concept is distinct enough that it might be reused later.
+- When creating a new file:
+  - Mirror the naming and folder structure already used for similar responsibilities.
+  - Optionally add a short top-level comment if the responsibility is non-obvious.
+
+## Data & Side Effects
+
+- Keep side-effect-heavy logic (I/O, network calls, DB writes) in clearly designated layers:
+  - Services, API routes, server actions, backend modules.
+- Do not scatter side-effects into deeply nested UI or helper code unless that pattern already exists.
+- If the repository has a single source of truth for a concern (auth, config, logging, analytics), route changes through it.
+
+## Error Handling
+
+- Follow existing error-handling style (exceptions, result objects, union return types, etc.).
+- When adding new errors:
+  - Prefer explicit, typed error paths over silent failures.
+  - Provide messages that will be useful in logs, not just to the caller.
+
+## Project-Specific Patterns
+
+- This is a new project. As patterns emerge, update this section to document:
+  - Tech stack and versions (framework, styling, data layer, testing)
+  - File structure and naming conventions
+  - UI/styling approach and component patterns
+  - Data access patterns and query conventions
+  - Authentication and authorization approach
+  - Testing strategy and patterns
+  - Preferred patterns to follow
+  - Patterns to avoid

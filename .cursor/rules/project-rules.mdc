@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+# Project Rules
+
+This project uses modular rule files. The rules are organized into the following files:
+
+- **foundation.mdc** - Core principles: mindset, communication, consistency, safety, decision-making, feature development, file creation, data handling, error handling, and project-specific patterns.
+
+- **research-context.mdc** - Guidelines for researching the codebase before making changes: pattern search, honoring abstractions, understanding data flow, version awareness.
+
+- **modularity.mdc** - File organization and code structure: file size guidelines, when to extract code, composition patterns, avoiding fragmentation.
+
+- **backend.mdc** - Backend architecture rules: Supabase (default) and Convex conventions, schema design, migrations, RLS, auth, API routes.
+
+- **ui-tailwind.mdc** - UI and styling conventions: Tailwind usage, className organization, design tokens, responsiveness, component patterns, accessibility.
+
+All rule files have `alwaysApply: true` and are automatically applied to every AI request in this repository.
