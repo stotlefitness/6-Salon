@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "npm run lint && npm run typecheck"
+    "test": "npm run lint && npm run typecheck",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",

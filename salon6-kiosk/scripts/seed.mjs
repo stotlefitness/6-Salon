@@ -1,21 +1,26 @@
-import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+#!/usr/bin/env node
+import { execSync } from "node:child_process";
 
-async function main() {
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  const seedPath = join(currentDir, "../db/seed.sql");
-  const sql = await readFile(seedPath, "utf8");
-
-  console.log("Ready to load seed data via Supabase CLI:");
-  console.log(`- File: ${seedPath}`);
-  console.log(sql.slice(0, 200) + (sql.length > 200 ? "..." : ""));
-  // TODO: execute seed against local database connection.
+function run(cmd) {
+  console.log(`\n> ${cmd}\n`);
+  execSync(cmd, { stdio: "inherit" });
 }
 
-main().catch((error) => {
-  console.error(error);
+try {
+  if (process.env.NODE_ENV === "production") {
+    console.error("❌ Refusing to run seed in NODE_ENV=production.");
+    process.exit(1);
+  }
+
+  // Ensure Supabase CLI is present.
+  run("supabase -v");
+
+  // Reset the linked database, reapply migrations, and run supabase/seed.sql.
+  run("supabase db reset --force");
+
+  console.log("\n✅ Database reset and seeded from supabase/seed.sql.\n");
+} catch (err) {
+  console.error(err);
+  console.error("\n❌ Seed/reset failed.\n");
   process.exit(1);
-});
-
-
+}

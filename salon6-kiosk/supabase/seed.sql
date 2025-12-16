@@ -94,5 +94,3 @@ values
     'pi_demo_001'
   )
 on conflict (id) do nothing;
-
-
