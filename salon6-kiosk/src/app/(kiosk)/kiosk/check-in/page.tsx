@@ -70,7 +70,7 @@ export default function CheckInPage() {
         return;
       }
       setResult(json);
-    } catch (err) {
+    } catch {
       setError(FRONT_DESK_MESSAGE);
     } finally {
       setLoading(false);
@@ -92,7 +92,7 @@ export default function CheckInPage() {
         return;
       }
       setResult(json);
-    } catch (err) {
+    } catch {
       setError(FRONT_DESK_MESSAGE);
     } finally {
       setLoading(false);

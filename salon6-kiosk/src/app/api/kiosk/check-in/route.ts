@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   try {
     normalizedPhone = normalizePhone(parsed.data.phone);
     normalizedLastName = normalizeLastName(parsed.data.lastName);
-  } catch (err) {
+  } catch {
     return kioskError(GENERIC_FRONT_DESK, 400);
   }
 
