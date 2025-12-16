@@ -1,57 +1,65 @@
 -- Seed/demo data for local development.
--- Insert baseline services, products, stylists, and sample bookings.
+-- Insert baseline salon, services, stylists, customers, and sample bookings.
 
--- Deterministic IDs keep relationships stable across repeated loads.
+-- Stable Birmingham salon
+insert into salons (id, name, timezone)
+values ('00000000-0000-0000-0000-000000000001', '6 Salon - Birmingham', 'America/Detroit')
+on conflict (id) do update set name = excluded.name, timezone = excluded.timezone;
+
 -- Stylists
-insert into stylists (id, display_name, role, is_active)
+insert into stylists (id, salon_id, first_name, last_name, role, is_active)
 values
-  ('11111111-1111-1111-1111-111111111111', 'Alex Rivera', 'stylist', true),
-  ('22222222-2222-2222-2222-222222222222', 'Jamie Chen', 'stylist', true)
+  ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000001', 'Alex', 'Rivera', 'stylist', true),
+  ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000001', 'Jamie', 'Chen', 'stylist', true)
 on conflict (id) do nothing;
 
 -- Services
-insert into services (id, name, description, duration_minutes, price_cents, is_active)
+insert into services (id, salon_id, name, description, duration_minutes, price_cents, is_active)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Classic Cut', 'Standard cut and light styling', 45, 4500, true),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Blowout', 'Wash and blowout with finish', 60, 6500, true),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Color Refresh', 'Roots and gloss refresh', 90, 12000, true)
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000001', 'Classic Cut', 'Standard cut and light styling', 45, 4500, true),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000001', 'Blowout', 'Wash and blowout with finish', 60, 6500, true),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000001', 'Color Refresh', 'Roots and gloss refresh', 90, 12000, true)
 on conflict (id) do nothing;
 
 -- Products
-insert into products (id, name, description, price_cents, retail_sku, stock_quantity, is_active)
+insert into products (id, salon_id, name, description, price_cents, retail_sku, stock_quantity, is_active)
 values
-  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Finishing Spray', 'Light hold finishing spray', 2200, 'FS-01', 24, true),
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Hydrating Serum', 'Leave-in hydrating serum', 3400, 'HS-02', 18, true)
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000001', 'Finishing Spray', 'Light hold finishing spray', 2200, 'FS-01', 24, true),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '00000000-0000-0000-0000-000000000001', 'Hydrating Serum', 'Leave-in hydrating serum', 3400, 'HS-02', 18, true)
 on conflict (id) do nothing;
 
 -- Customers
-insert into customers (id, full_name, phone, email)
+insert into customers (id, salon_id, first_name, last_name, phone, email)
 values
-  ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'Taylor Morgan', '+1-555-0100', 'taylor@example.com'),
-  ('bbbbbbbb-cccc-dddd-eeee-ffffffffffff', 'Riley Patel', '+1-555-0101', 'riley@example.com')
+  ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '00000000-0000-0000-0000-000000000001', 'Taylor', 'Morgan', '+1 (555) 010-0100', 'taylor@example.com'),
+  ('bbbbbbbb-cccc-dddd-eeee-ffffffffffff', '00000000-0000-0000-0000-000000000001', 'Riley', 'Patel', '+1 (555) 010-0101', 'riley@example.com')
 on conflict (id) do nothing;
 
--- Bookings
-insert into bookings (id, customer_id, stylist_id, scheduled_start, scheduled_end, status, notes, total_amount_cents)
+-- Bookings (one today for check-in flow)
+insert into bookings (id, salon_id, customer_id, stylist_id, service_id, start_time, end_time, status, source, total_amount_cents)
 values
   (
     '99999999-1111-2222-3333-444444444444',
+    '00000000-0000-0000-0000-000000000001',
     'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
     '11111111-1111-1111-1111-111111111111',
-    now() + interval '1 day',
-    now() + interval '1 day 1 hour',
-    'confirmed',
-    'Prefers warm water and light fragrance products',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    date_trunc('day', now()) + interval '10 hour',
+    date_trunc('day', now()) + interval '11 hour',
+    'scheduled',
+    'kiosk',
     4500
   ),
   (
     '99999999-5555-6666-7777-888888888888',
+    '00000000-0000-0000-0000-000000000001',
     'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
     '22222222-2222-2222-2222-222222222222',
-    now() + interval '2 days',
-    now() + interval '2 days 1 hour 30 minutes',
-    'pending',
-    'Has a haircut + blowout combo',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    date_trunc('day', now()) + interval '15 hour',
+    date_trunc('day', now()) + interval '16 hour 30 minutes',
+    'scheduled',
+    'admin',
     11000
   )
 on conflict (id) do nothing;
@@ -82,7 +90,7 @@ values
   )
 on conflict (id) do nothing;
 
--- Payments
+-- Payments (optional example)
 insert into payments (id, booking_id, amount_cents, method, status, external_id)
 values
   (

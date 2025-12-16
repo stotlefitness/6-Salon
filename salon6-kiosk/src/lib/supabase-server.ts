@@ -1,22 +1,43 @@
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
-export function createSupabaseServerClient() {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/bdc49661-e23b-4925-af4c-a5a6bbd1c932',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'src/lib/supabase-server.ts:createSupabaseServerClient',message:'entry createSupabaseServerClient',data:{hasUrl:Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),hasServiceKey:Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type SupabaseRole = "owner" | "manager" | "stylist" | "frontdesk";
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/bdc49661-e23b-4925-af4c-a5a6bbd1c932',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'src/lib/supabase-server.ts:createSupabaseServerClient',message:'missing supabase env',data:{supabaseUrlPresent:Boolean(supabaseUrl),serviceRolePresent:Boolean(serviceRoleKey)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
-    throw new Error("Supabase server env vars are missing");
+function requireEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing env var: ${key}`);
   }
+  return value;
+}
+
+export function createSupabaseServiceRoleClient() {
+  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
+export async function createSupabaseServerClient() {
+  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const cookieStore = await cookies();
 
+  return createServerClient(supabaseUrl, anonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+      /**
+       * In RSC we cannot set cookies; this client is read-only for auth checks.
+       */
+      set() {},
+      remove() {},
+    },
+  });
+}
+
+export type { SupabaseRole };

@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { execSync } from "node:child_process";
+import { access, constants } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-function run(cmd) {
+function run(cmd, cwd) {
   console.log(`\n> ${cmd}\n`);
-  execSync(cmd, { stdio: "inherit" });
+  execSync(cmd, { stdio: "inherit", cwd });
 }
 
 try {
@@ -12,15 +15,20 @@ try {
     process.exit(1);
   }
 
+  const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+  const seedPath = join(repoRoot, "db/seed.sql");
+
+  await access(seedPath, constants.R_OK);
+
   // Ensure Supabase CLI is present.
-  run("supabase -v");
+  run("supabase -v", repoRoot);
 
-  // Reset the linked database, reapply migrations, and run supabase/seed.sql.
-  run("supabase db reset --force");
+  // Apply seed to the linked database without dropping data.
+  run(`supabase db execute --file "${seedPath}"`, repoRoot);
 
-  console.log("\n✅ Database reset and seeded from supabase/seed.sql.\n");
+  console.log("\n✅ Seed applied from db/seed.sql.\n");
 } catch (err) {
   console.error(err);
-  console.error("\n❌ Seed/reset failed.\n");
+  console.error("\n❌ Seed failed.\n");
   process.exit(1);
 }

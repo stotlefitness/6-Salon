@@ -1,11 +1,9 @@
-export type StaffSession = {
-  userId: string;
-  role: "owner" | "manager" | "staff";
-};
+import {
+  getStaffContext,
+  requireStaffContext,
+  type StaffContextValue,
+} from "./staff-context";
 
-export async function requireStaffSession(): Promise<StaffSession> {
-  // TODO: implement Supabase auth lookup + role enforcement.
-  throw new Error("Staff authentication not implemented yet");
-}
-
-
+export type StaffSession = StaffContextValue;
+export const getStaffSession = getStaffContext;
+export const requireStaffSession = requireStaffContext;

@@ -122,3 +122,4 @@ create policy if not exists "service role full access payments" on payments
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 
+
