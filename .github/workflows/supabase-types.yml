@@ -36,7 +36,7 @@ jobs:
 
       - name: Prepare Supabase workdir
         run: |
-          rsync -a supabase /tmp/supabase
+          rsync -a supabase/ /tmp/supabase
           find /tmp/supabase/migrations -type f -name "*.sql" -exec sed -i 's/create policy if not exists/create policy/g' {} \;
 
       - name: Start Supabase local stack
