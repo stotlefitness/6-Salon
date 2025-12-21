@@ -27,7 +27,7 @@ jobs:
           test -n "${{ secrets.SUPABASE_PROJECT_REF }}" || (echo "Missing SUPABASE_PROJECT_REF" && exit 1)
 
       - name: Login (access token)
-        run: supabase login --access-token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
       - name: Generate types
         shell: bash
