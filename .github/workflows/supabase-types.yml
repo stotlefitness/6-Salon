@@ -39,8 +39,8 @@ jobs:
           rsync -a supabase/ /tmp/supabase
           find /tmp/supabase/migrations -type f -name "*.sql" -exec sed -i 's/create policy if not exists/create policy/g' {} \;
 
-      - name: Start Supabase local stack
-        run: supabase start --workdir /tmp/supabase -x studio,edge-runtime,storage-api
+      - name: Start Supabase local db
+        run: supabase db start --workdir /tmp/supabase
 
       - name: Apply migrations locally
         run: supabase db reset --workdir /tmp/supabase --local --yes --no-seed
