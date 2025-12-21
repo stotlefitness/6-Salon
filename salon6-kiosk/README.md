@@ -37,6 +37,7 @@ Anything used in the browser must start with `NEXT_PUBLIC_`. Keep secrets out of
 - App URLs / misc  
   - `NEXT_PUBLIC_APP_URL` (per env base URL)  
   - `KIOSK_LOCATION_ID` (optional: seed a primary location)  
+  - `KIOSK_SALON_ID`, `KIOSK_TOKEN`, `KIOSK_TOKEN_2` (kiosk auth → salon context; `KIOSK_TOKEN_2` for zero-downtime rotation)  
   - `NODE_ENV` (managed by Vercel)
 
 Set these in Vercel Project Settings (Production vs Preview scopes) and locally in `.env.local` (not committed).
@@ -119,6 +120,12 @@ Run `npm run db:seed` (applies `supabase/seed.sql` via Supabase CLI). Then open 
 | Case-insensitive last name + dotted phone | `248.555.7777` | `VALDEZ` | Should match Dana Valdez and return NO_BOOKING_TODAY |
 
 Admin dashboard (`/admin`) reflects status changes (scheduled → checked_in) for today’s window.
+
+### Booking requests (kiosk → staff)
+- Kiosk submits via `POST /api/booking-requests` (server attaches salon_id, request_source `kiosk`; status starts as `new`).
+- Staff triage via `PATCH /api/booking-requests/:id` (status transitions: `new` → `in_progress` → `scheduled_in_phorest`/`closed`; optional staff notes / phorest_appointment_id).
+- Data is salon-scoped via RLS; kiosk never writes directly to DB (service-role inserts).
+- Kiosk auth: send `x-kiosk-token` (matches `KIOSK_TOKEN` env); server derives `salon_id` (e.g., `KIOSK_SALON_ID`).
 
 ### Admin authentication setup (local)
 

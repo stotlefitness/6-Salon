@@ -141,9 +141,6 @@ export async function POST(request: Request) {
     case "checkout.session.async_payment_failed":
       await updateStatus("failed", null);
       break;
-    case "checkout.session.canceled":
-      await updateStatus("cancelled", null);
-      break;
     default:
       // ignore other events
       break;

@@ -59,10 +59,6 @@ export async function POST(request: Request) {
     session = existingSession;
   }
 
-  if (sessionError || !session) {
-    return NextResponse.json({ error: "Checkout session not found" }, { status: 404 });
-  }
-
   if (session.stripe_checkout_session_id) {
     const existing = await stripe.checkout.sessions.retrieve(session.stripe_checkout_session_id);
     if (existing?.status !== "expired" && existing?.url) {
