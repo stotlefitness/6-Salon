@@ -42,6 +42,9 @@ jobs:
       - name: Start Supabase local stack
         run: supabase start --workdir /tmp/supabase -x studio,edge-runtime,storage-api
 
+      - name: Apply migrations locally
+        run: supabase db reset --workdir /tmp/supabase --local --yes --no-seed
+
       - name: Generate types
         shell: bash
         run: |
