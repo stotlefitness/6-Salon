@@ -34,11 +34,13 @@ jobs:
       - name: Login (access token)
         run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
-      - name: Start Supabase local stack
-        run: supabase start -x studio,edge-runtime,storage-api
+      - name: Prepare Supabase workdir
+        run: |
+          rsync -a supabase /tmp/supabase
+          find /tmp/supabase/migrations -type f -name "*.sql" -exec sed -i 's/create policy if not exists/create policy/g' {} \;
 
-      - name: Reset local database (apply migrations)
-        run: supabase db reset --local --yes
+      - name: Start Supabase local stack
+        run: supabase start --workdir /tmp/supabase -x studio,edge-runtime,storage-api
 
       - name: Generate types
         shell: bash
@@ -46,6 +48,7 @@ jobs:
           set -euo pipefail
           mkdir -p src/types
           supabase gen types typescript \
+            --workdir /tmp/supabase \
             --local \
             --schema public \
             > src/types/supabase.ts
