@@ -1,0 +1,47 @@
+name: Supabase types drift check
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  supabase-types:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ensure Supabase secrets exist
+        run: |
+          test -n "${{ secrets.SUPABASE_ACCESS_TOKEN }}" || (echo "Missing SUPABASE_ACCESS_TOKEN" && exit 1)
+          test -n "${{ secrets.SUPABASE_PROJECT_REF }}" || (echo "Missing SUPABASE_PROJECT_REF" && exit 1)
+
+      - name: Login (access token)
+        run: supabase login --access-token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+
+      - name: Generate types
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src/types
+          supabase gen types typescript \
+            --project-id "${{ secrets.SUPABASE_PROJECT_REF }}" \
+            --schema public \
+            > src/types/supabase.ts
+
+      - name: Fail if types are out of date
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- src/types/supabase.ts
+
