@@ -13,61 +13,38 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      # Start local stack (must be in the directory that contains ./supabase)
-      - name: Start Supabase local stack
-        working-directory: salon6-kiosk
-        run: supabase start
-
-      # Reset DB + apply migrations from supabase/migrations
-      - name: Reset DB + apply migrations
-        working-directory: salon6-kiosk
-        run: supabase db reset --local --force
-
-      # Get DB_URL for a sanity query
-      - name: Sanity check public schema has tables
-        working-directory: salon6-kiosk
-        shell: bash
+      - name: Ensure Supabase secrets exist
         run: |
-          set -euo pipefail
-          supabase status -o env > /tmp/supabase.env
-          source /tmp/supabase.env
-          echo "DB_URL=$DB_URL"
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select count(*) as public_tables from pg_tables where schemaname='public';"
+          test -n "${{ secrets.SUPABASE_ACCESS_TOKEN }}" || (echo "Missing SUPABASE_ACCESS_TOKEN" && exit 1)
+          test -n "${{ secrets.SUPABASE_PROJECT_REF }}" || (echo "Missing SUPABASE_PROJECT_REF" && exit 1)
 
-      # Generate types from the local DB
-      - name: Generate types
+      - name: Login
+        run: supabase login --access-token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+
+      - name: Generate types from hosted project
         working-directory: salon6-kiosk
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p src/types
-          supabase gen types typescript --local --schema public > src/types/supabase.ts
+          supabase gen types typescript \
+            --project-id "${{ secrets.SUPABASE_PROJECT_REF }}" \
+            --schema public \
+            > src/types/supabase.ts
 
-      # Upload the generated file for debugging (always helpful)
       - name: Upload generated types artifact
         uses: actions/upload-artifact@v4
         with:
           name: supabase-types
           path: salon6-kiosk/src/types/supabase.ts
 
-      # Fail if committed types are stale
       - name: Fail if types are out of date
         working-directory: salon6-kiosk
-        shell: bash
-        run: |
-          set -euo pipefail
-          git diff --exit-code -- src/types/supabase.ts
-
-      - name: Stop Supabase local stack
-        if: always()
-        working-directory: salon6-kiosk
-        run: supabase stop --no-backup
+        run: git diff --exit-code -- src/types/supabase.ts
 
