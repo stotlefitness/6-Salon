@@ -1,9 +1,9 @@
-import { requireStaffContext } from "@/lib/auth";
+import { requireStaffSession } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import RequestsClient from "./requestsClient";
 
 export default async function RequestsPage() {
-  const staff = await requireStaffContext();
+  const staff = await requireStaffSession();
   const supabase = await createSupabaseServerClient();
   const fetchedAt = new Date().toISOString();
 

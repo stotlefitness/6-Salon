@@ -34,7 +34,7 @@ export default function TodayClient({ initialSummary, salonId }: Props) {
   }, []);
 
   const visitCounts = useMemo(() => {
-    const counts = { waiting: 0, in_service: 0, completed: 0 };
+    const counts = { waiting: 0, completed: 0 };
     summary.visits.forEach((v) => {
       counts[v.status as keyof typeof counts] = (counts[v.status as keyof typeof counts] ?? 0) + 1;
     });
@@ -84,9 +84,6 @@ export default function TodayClient({ initialSummary, salonId }: Props) {
         <div className="flex flex-wrap gap-2 text-sm text-zinc-700">
           <span className="rounded-full bg-zinc-100 px-3 py-1">Waiting {visitCounts.waiting}</span>
           <span className="rounded-full bg-zinc-100 px-3 py-1">
-            In service {visitCounts.in_service}
-          </span>
-          <span className="rounded-full bg-zinc-100 px-3 py-1">
             Completed {visitCounts.completed}
           </span>
         </div>
@@ -104,7 +101,7 @@ export default function TodayClient({ initialSummary, salonId }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{v.name}</span>
                     <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium">
-                      {v.status.replace("_", " ")}
+                      {v.status}
                     </span>
                     <span className="rounded-full bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
                       {v.source}
@@ -171,6 +168,9 @@ export default function TodayClient({ initialSummary, salonId }: Props) {
           <span className="rounded-full bg-zinc-100 px-3 py-1">
             Paid {summary.payments.count} • {currency(summary.payments.total_cents)}
           </span>
+          <span className="text-xs text-zinc-600">
+            Paid totals reflect sessions marked completed by Stripe webhook.
+          </span>
         </div>
         <div className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-semibold">Payments today</h2>
@@ -184,7 +184,7 @@ export default function TodayClient({ initialSummary, salonId }: Props) {
                   className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                 >
                   <div className="flex flex-col">
-                    <span className="font-semibold">{currency(p.amount_cents)}</span>
+                    <span className="font-semibold">{currency(p.total_cents)}</span>
                     <span className="text-xs text-zinc-600">
                       {new Date(p.created_at).toLocaleTimeString()}
                     </span>

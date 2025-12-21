@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireStaffContext } from "@/lib/auth";
+import { requireStaffSession } from "@/lib/auth";
 import { fetchTodaySummary } from "@/lib/todaySummary";
 
 export async function GET() {
   try {
-    const staff = await requireStaffContext();
+    const staff = await requireStaffSession();
     const summary = await fetchTodaySummary(staff.salonId);
     return NextResponse.json(summary);
   } catch (err) {
