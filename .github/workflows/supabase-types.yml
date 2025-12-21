@@ -33,15 +33,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p src/types
+          mkdir -p salon6-kiosk/src/types
           supabase gen types typescript \
             --project-id "${{ secrets.SUPABASE_PROJECT_REF }}" \
             --schema public \
-            > src/types/supabase.ts
+            > salon6-kiosk/src/types/supabase.ts
 
       - name: Fail if types are out of date
         shell: bash
         run: |
           set -euo pipefail
-          git diff --exit-code -- src/types/supabase.ts
+          git diff --exit-code -- salon6-kiosk/src/types/supabase.ts
+
+      - name: Upload generated supabase.ts artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-types
+          path: salon6-kiosk/src/types/supabase.ts
 
