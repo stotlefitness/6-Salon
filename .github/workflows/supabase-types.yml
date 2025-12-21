@@ -34,6 +34,9 @@ jobs:
       - name: Login (access token)
         run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
+      - name: Start Supabase local stack
+        run: supabase start -x studio,edge-runtime,storage-api
+
       - name: Reset local database (apply migrations)
         run: supabase db reset --local --yes
 
