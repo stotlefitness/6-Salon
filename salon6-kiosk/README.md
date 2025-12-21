@@ -95,20 +95,63 @@ Migrations will be driven from `db/schema.sql`.
 - Staging: point Stripe Test webhook to `https://salon6-kiosk-staging.vercel.app/api/stripe/webhook`.
 - Prod: point Stripe Live webhook to `https://salon6-kiosk.vercel.app/api/stripe/webhook` with a separate signing secret.
 
+### Stripe Checkout (server-side only)
+- Create a checkout session via `POST /api/checkout/session` with `{ checkoutSessionId: <uuid> }` (internal ID in `checkout_sessions`).
+- Line items must be stored in `checkout_line_items`; the API builds dynamic `price_data` for Stripe.
+- Webhook (`/api/stripe/webhook`) is the source of truth for payment status; duplicate events are ignored via `stripe_events`.
+
 ### Scripts
 - `npm run dev` – start Next.js
 - `node scripts/migrate.mjs` – apply pending migrations to the linked Supabase project
 - `node scripts/seed.mjs` – seed the linked Supabase project
 - `npm run lint` – ESLint
 
-### Check-in flow (local smoke test)
-1) Seed the database: `npm run db:seed` (uses `supabase/seed.sql`).  
-2) Start the app: `npm run dev`.  
-3) Open `http://localhost:3000/kiosk/check-in`.  
-4) Use the seeded booking: phone `(555) 010-0100`, last name `Morgan`.  
-   - Single booking auto-checks in and returns to kiosk home after a few seconds.  
-5) Multiple bookings (if added) will render selection cards and call `/api/kiosk/check-in/confirm`.  
-6) Admin dashboard (`/admin`) reflects `checked_in` counts for the salon (RLS keeps data salon-scoped).
+### Seeded check-in personas (local QA)
+Run `npm run db:seed` (applies `supabase/seed.sql` via Supabase CLI). Then open `http://localhost:3000/kiosk/check-in` and try these phones/last names:
+
+| Scenario | Phone | Last name | Expected |
+| --- | --- | --- | --- |
+| Two bookings today (select one) | `(555) 010-0100` | `Morgan` | MULTIPLE → selection screen (10:00 + 13:00) |
+| Already checked in | `2485550000` | `Lee` | CHECKED_IN without mutating timestamps |
+| No booking today (has tomorrow) | `(248) 555-1234` | `Valdez` | NO_BOOKING_TODAY messaging |
+| No booking today (had yesterday) | `248-555-9999` | `Green` | NO_BOOKING_TODAY messaging |
+| Late-night boundary | `313 555 1212` | `Night` | Booking at ~23:30 local shows as today |
+| Case-insensitive last name + dotted phone | `248.555.7777` | `VALDEZ` | Should match Dana Valdez and return NO_BOOKING_TODAY |
+
+Admin dashboard (`/admin`) reflects status changes (scheduled → checked_in) for today’s window.
+
+### Admin authentication setup (local)
+
+The admin dashboard requires authentication. To set up a dev staff user:
+
+1. **Create a Supabase auth user** via the Supabase dashboard (Authentication → Users → Add user) or via SQL:
+   ```sql
+   -- Replace with your email and a secure password hash
+   -- You can generate a password hash using: SELECT crypt('your-password', gen_salt('bf'));
+   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+   VALUES (
+     gen_random_uuid(),
+     'admin@example.com',
+     crypt('your-password', gen_salt('bf')),
+     now(),
+     now(),
+     now()
+   );
+   ```
+
+2. **Link the auth user to a staff_users record**:
+   ```sql
+   -- Replace 'your-user-id' with the auth.users.id from step 1
+   INSERT INTO staff_users (user_id, salon_id, role, display_name)
+   VALUES (
+     'your-user-id',
+     '00000000-0000-0000-0000-000000000001', -- Birmingham salon
+     'owner',
+     'Dev Admin'
+   );
+   ```
+
+3. **Sign in** at `http://localhost:3001/login` with the email/password from step 1.
 
 ### Deployment checklist / rollback
 1) Add schema changes → generate migration → commit.

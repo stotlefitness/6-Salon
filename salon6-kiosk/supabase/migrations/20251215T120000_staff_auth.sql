@@ -316,3 +316,5 @@ create policy if not exists "staff view payments" on payments
     where su.user_id = auth.uid()
       and su.salon_id = b.salon_id
   ));
+
+

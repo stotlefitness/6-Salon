@@ -35,7 +35,11 @@ values
   ('bbbbbbbb-cccc-dddd-eeee-ffffffffffff', '00000000-0000-0000-0000-000000000001', 'Riley', 'Patel', '+1 (555) 010-0101', '+15550100101', 'riley@example.com'),
   ('cccccccc-aaaa-bbbb-cccc-dddddddddddd', '00000000-0000-0000-0000-000000000001', 'Jordan', 'Valdez', '(248) 555-1234', '+12485551234', 'jordan@example.com'),
   ('dddddddd-aaaa-bbbb-cccc-eeeeeeeeeeee', '00000000-0000-0000-0000-000000000001', 'Casey', 'Green', '248-555-9999', '+12485559999', 'casey@example.com'),
-  ('eeeeeeee-aaaa-bbbb-cccc-ffffffffffff', '00000000-0000-0000-0000-000000000001', 'Sam', 'Lee', '2485550000', '+12485550000', 'sam@example.com')
+  ('eeeeeeee-aaaa-bbbb-cccc-ffffffffffff', '00000000-0000-0000-0000-000000000001', 'Sam', 'Lee', '2485550000', '+12485550000', 'sam@example.com'),
+  -- Mixed casing + dotted phone for case/format testing
+  ('ffffffff-aaaa-bbbb-cccc-111111111111', '00000000-0000-0000-0000-000000000001', 'Dana', 'VALDEZ', '248.555.7777', '+12485557777', 'dana@example.com'),
+  -- Late-night booking boundary tester
+  ('ffffffff-aaaa-bbbb-cccc-222222222222', '00000000-0000-0000-0000-000000000001', 'Avery', 'Night', '313 555 1212', '+13135551212', 'avery@example.com')
 on conflict (id) do nothing;
 
 -- Bookings (one today for check-in flow)
@@ -100,6 +104,32 @@ values
     'checked_in',
     'kiosk',
     6500
+  ),
+  (
+    -- Yesterday booking: ensure “no booking today” still finds customer
+    '99999999-aaaa-bbbb-cccc-000000000005',
+    '00000000-0000-0000-0000-000000000001',
+    'dddddddd-aaaa-bbbb-cccc-eeeeeeeeeeee',
+    '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    date_trunc('day', now()) - interval '6 hour',
+    date_trunc('day', now()) - interval '5 hour',
+    'scheduled',
+    'kiosk',
+    4500
+  ),
+  (
+    -- Midnight boundary booking: spans to next calendar day in Detroit
+    '99999999-aaaa-bbbb-cccc-000000000006',
+    '00000000-0000-0000-0000-000000000001',
+    'ffffffff-aaaa-bbbb-cccc-222222222222',
+    '11111111-1111-1111-1111-111111111111',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    date_trunc('day', now()) + interval '23 hour 30 minutes',
+    date_trunc('day', now()) + interval '24 hour 30 minutes',
+    'scheduled',
+    'kiosk',
+    6500
   )
 on conflict (id) do nothing;
 
@@ -151,6 +181,20 @@ values
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     1,
     6500
+  ),
+  (
+    '71717171-8181-9191-a1a1-b2b2b2b2b2b2',
+    '99999999-aaaa-bbbb-cccc-000000000005',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    1,
+    4500
+  ),
+  (
+    '82828282-9393-a4a4-b5b5-c6c6c6c6c6c6',
+    '99999999-aaaa-bbbb-cccc-000000000006',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    1,
+    6500
   )
 on conflict (id) do nothing;
 
@@ -166,3 +210,5 @@ values
     'pi_demo_001'
   )
 on conflict (id) do nothing;
+
+

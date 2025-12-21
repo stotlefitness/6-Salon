@@ -98,3 +98,4 @@ export function getTodayRange(
     end: new Date(endUtc),
   };
 }
+

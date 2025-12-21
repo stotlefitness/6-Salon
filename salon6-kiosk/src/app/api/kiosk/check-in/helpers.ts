@@ -65,3 +65,42 @@ export async function enrichBookings(
     checkedInAt: b.checked_in_at,
   }));
 }
+
+export async function transitionToCheckedIn(
+  bookingId: string,
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>
+) {
+  const { data: updatedRows, error: updateError } = await supabase
+    .from("bookings")
+    .update({
+      status: "checked_in",
+      checked_in_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .eq("status", "scheduled")
+    .select(BOOKING_SELECT_COLUMNS);
+
+  if (updateError) {
+    return { booking: null, error: updateError };
+  }
+
+  const updated = updatedRows?.[0] as BookingRow | undefined;
+  if (updated) {
+    return { booking: updated, error: null };
+  }
+
+  // Race case: someone else checked in first; return the checked-in row if present.
+  const { data: latest, error: latestError } = await supabase
+    .from("bookings")
+    .select(BOOKING_SELECT_COLUMNS)
+    .eq("id", bookingId)
+    .single();
+
+  if (!latestError && latest?.status === "checked_in") {
+    return { booking: latest as BookingRow, error: null };
+  }
+
+  return { booking: null, error: latestError ?? null };
+}
+
+

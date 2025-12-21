@@ -16,7 +16,8 @@ try {
   }
 
   const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  const seedPath = join(repoRoot, "db/seed.sql");
+  // Use the Supabase seed that matches the current schema.
+  const seedPath = join(repoRoot, "supabase/seed.sql");
 
   await access(seedPath, constants.R_OK);
 
@@ -32,3 +33,5 @@ try {
   console.error("\n❌ Seed failed.\n");
   process.exit(1);
 }
+
+

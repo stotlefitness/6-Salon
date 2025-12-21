@@ -23,3 +23,5 @@ try {
   console.error("\n❌ Migration failed.\n");
   process.exit(1);
 }
+
+

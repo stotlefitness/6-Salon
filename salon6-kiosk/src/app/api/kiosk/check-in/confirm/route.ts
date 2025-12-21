@@ -10,6 +10,7 @@ import {
   BookingRow,
   enrichBookings,
   kioskError,
+  transitionToCheckedIn,
 } from "../helpers";
 
 const GENERIC_FRONT_DESK = "Something went wrong. Please see the front desk.";
@@ -25,12 +26,14 @@ export async function POST(request: Request) {
 
   const { salonId, bookingId } = parsed.data;
 
+  // Keep “today” bound to the salon timezone to avoid UTC rollover issues.
   const { start, end } = getTodayRange(DEFAULT_TIMEZONE);
   const { data: booking, error } = await supabase
     .from("bookings")
     .select(`${BOOKING_SELECT_COLUMNS}, salon_id, customer_id`)
     .eq("id", bookingId)
     .eq("salon_id", salonId)
+    .not("status", "in", "{completed,cancelled,no_show}")
     .in("status", ["scheduled", "checked_in"])
     .gte("start_time", start.toISOString())
     .lte("start_time", end.toISOString())
@@ -50,40 +53,14 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data: updated, error: updateError } = await supabase
-    .from("bookings")
-    .update({
-      status: "checked_in",
-      checked_in_at: new Date().toISOString(),
-    })
-    .eq("id", booking.id)
-    .eq("status", "scheduled")
-    .select(BOOKING_SELECT_COLUMNS);
+  const { booking: updatedBooking, error: updateError } =
+    await transitionToCheckedIn(booking.id, supabase);
 
   if (updateError) {
     return kioskError();
   }
 
-  const updatedBooking = (updated?.[0] as BookingRow) ?? null;
-
   if (!updatedBooking) {
-    const { data: latest, error: latestError } = await supabase
-      .from("bookings")
-      .select(BOOKING_SELECT_COLUMNS)
-      .eq("id", booking.id)
-      .single();
-
-    if (!latestError && latest?.status === "checked_in") {
-      const [alreadyCheckedIn] = await enrichBookings(
-        [latest as BookingRow],
-        supabase
-      );
-      return NextResponse.json({
-        status: "CHECKED_IN",
-        booking: alreadyCheckedIn,
-      });
-    }
-
     return kioskError();
   }
 
@@ -92,3 +69,5 @@ export async function POST(request: Request) {
     booking: (await enrichBookings([updatedBooking], supabase))[0],
   });
 }
+
+

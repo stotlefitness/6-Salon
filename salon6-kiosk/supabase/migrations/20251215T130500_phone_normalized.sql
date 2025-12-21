@@ -34,3 +34,5 @@ alter table customers alter column phone_normalized set not null;
 create index if not exists idx_customers_salon_phone_normalized_last
   on customers (salon_id, phone_normalized, lower(last_name));
 
+
+

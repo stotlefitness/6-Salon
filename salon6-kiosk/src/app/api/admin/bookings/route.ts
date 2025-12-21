@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
   const url = new URL(request.url);
   const range = url.searchParams.get("range") ?? "today";
+  // Keep “today” scoped to the salon timezone to avoid UTC boundary issues.
   const { start, end } = getTodayRange(DEFAULT_TIMEZONE);
 
   let query = supabase
@@ -44,3 +45,4 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ bookings: data, counts });
 }
+

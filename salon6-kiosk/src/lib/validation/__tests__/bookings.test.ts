@@ -13,6 +13,8 @@ describe("normalizePhone", () => {
     assert.equal(normalizePhone("(248) 555-1234"), expected);
     assert.equal(normalizePhone("248-555-1234"), expected);
     assert.equal(normalizePhone("12485551234"), "+12485551234");
+    assert.equal(normalizePhone("248.555.1234"), expected);
+    assert.equal(normalizePhone("+1 (248) 555 1234"), expected);
   });
 
   it("throws on too-short numbers", () => {
@@ -23,6 +25,10 @@ describe("normalizePhone", () => {
 describe("normalizeLastName", () => {
   it("lowercases and trims whitespace", () => {
     assert.equal(normalizeLastName("  Valdez "), "valdez");
+  });
+
+  it("handles uppercase input", () => {
+    assert.equal(normalizeLastName("VALDEZ"), "valdez");
   });
 });
 
@@ -35,3 +41,5 @@ describe("getTodayRange", () => {
     assert.equal(end.toISOString(), "2025-01-01T04:59:59.999Z");
   });
 });
+
+

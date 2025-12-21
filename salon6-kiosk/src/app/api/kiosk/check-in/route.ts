@@ -12,6 +12,7 @@ import {
   BookingRow,
   enrichBookings,
   kioskError,
+  transitionToCheckedIn,
 } from "./helpers";
 
 const GENERIC_FRONT_DESK = "Something went wrong. Please see the front desk.";
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
   }
 
   const customer = customers[0];
+  // Anchor “today” to the salon timezone to avoid UTC boundary surprises.
   const { start, end } = getTodayRange(DEFAULT_TIMEZONE);
 
   const { data: bookings, error: bookingsError } = await supabase
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
     .eq("customer_id", customer.id)
     .gte("start_time", start.toISOString())
     .lte("start_time", end.toISOString())
+    .not("status", "in", "{completed,cancelled,no_show}")
     .in("status", ["scheduled", "checked_in"]);
 
   if (bookingsError) {
@@ -102,40 +105,16 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data: updatedRows, error: updateError } = await supabase
-    .from("bookings")
-    .update({
-      status: "checked_in",
-      checked_in_at: new Date().toISOString(),
-    })
-    .eq("id", booking.id)
-    .eq("status", "scheduled")
-    .select(BOOKING_SELECT_COLUMNS);
+  const { booking: updated, error: updateError } = await transitionToCheckedIn(
+    booking.id,
+    supabase
+  );
 
   if (updateError) {
     return kioskError();
   }
 
-  const updated = updatedRows?.[0] as BookingRow | undefined;
-
   if (!updated) {
-    const { data: latest, error: latestError } = await supabase
-      .from("bookings")
-      .select(BOOKING_SELECT_COLUMNS)
-      .eq("id", booking.id)
-      .single();
-
-    if (!latestError && latest?.status === "checked_in") {
-      const [alreadyCheckedIn] = await enrichBookings(
-        [latest as BookingRow],
-        supabase
-      );
-      return NextResponse.json({
-        status: "CHECKED_IN",
-        booking: alreadyCheckedIn,
-      });
-    }
-
     return kioskError();
   }
 
@@ -149,3 +128,4 @@ export async function POST(request: Request) {
     booking: enrichedBooking,
   });
 }
+

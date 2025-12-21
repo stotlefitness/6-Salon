@@ -52,6 +52,13 @@ export default function CheckInPage() {
       ? result.bookings
       : null;
 
+  const alreadyCheckedIn =
+    result &&
+    "status" in result &&
+    result.status === "CHECKED_IN" &&
+    "booking" in result &&
+    result.booking.status === "checked_in";
+
   const handleSubmit = async (evt: React.FormEvent<HTMLFormElement>) => {
     evt.preventDefault();
     setLoading(true);
@@ -103,7 +110,7 @@ export default function CheckInPage() {
     if (result && "status" in result) {
       switch (result.status) {
         case "CHECKED_IN":
-          return "You're checked in!";
+          return alreadyCheckedIn ? "You're already checked in" : "You're checked in!";
         case "MULTIPLE":
           return "Select your appointment";
         case "NO_CUSTOMER":
@@ -114,7 +121,7 @@ export default function CheckInPage() {
       }
     }
     return "Find your booking";
-  }, [result]);
+  }, [alreadyCheckedIn, result]);
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-zinc-50 p-8 text-zinc-900">
@@ -220,7 +227,7 @@ export default function CheckInPage() {
             {result.status === "CHECKED_IN" && "booking" in result ? (
               <div className="space-y-2 text-center">
                 <p className="text-base font-semibold text-zinc-900">
-                  You&apos;re checked in
+                  {alreadyCheckedIn ? "You're already checked in" : "You're checked in"}
                 </p>
                 <p className="text-sm text-zinc-600">
                   {result.booking.serviceName || "Your service"} at{" "}
@@ -231,7 +238,9 @@ export default function CheckInPage() {
                   .
                 </p>
                 <p className="text-xs text-zinc-500">
-                  We&apos;ll bring you back shortly. Returning to home...
+                  {alreadyCheckedIn
+                    ? "We already have you in the queue. Returning to home..."
+                    : "We&apos;ll bring you back shortly. Returning to home..."}
                 </p>
               </div>
             ) : null}
@@ -241,3 +250,4 @@ export default function CheckInPage() {
     </main>
   );
 }
+
