@@ -35,7 +35,7 @@ jobs:
         run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
       - name: Reset local database (apply migrations)
-        run: supabase db reset --force
+        run: supabase db reset --local --yes
 
       - name: Generate types
         shell: bash
