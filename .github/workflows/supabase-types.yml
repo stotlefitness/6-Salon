@@ -9,17 +9,12 @@ on:
 jobs:
   supabase-types:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: salon6-kiosk
     permissions:
       contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -34,30 +29,36 @@ jobs:
       - name: Login (access token)
         run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
-      - name: Prepare Supabase workdir
+      - name: Start Supabase local stack
+        working-directory: salon6-kiosk
+        run: supabase start
+
+      - name: Reset DB + apply migrations
+        working-directory: salon6-kiosk
+        run: supabase db reset --local --force
+
+      - name: Sanity check public schema has tables
+        working-directory: salon6-kiosk
         run: |
-          rsync -a supabase/ /tmp/supabase
-          find /tmp/supabase/migrations -type f -name "*.sql" -exec sed -i 's/create policy if not exists/create policy/g' {} \;
-
-      - name: Start Supabase local db
-        run: supabase db start --workdir /tmp/supabase
-
-      - name: Apply migrations locally
-        run: supabase db reset --workdir /tmp/supabase --local --yes --no-seed
+          supabase status -o env > /tmp/supabase.env
+          source /tmp/supabase.env
+          echo "DB_URL: $DB_URL"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select count(*) as public_tables from pg_tables where schemaname='public';"
 
       - name: Generate types
         shell: bash
+        working-directory: salon6-kiosk
         run: |
           set -euo pipefail
           mkdir -p src/types
           supabase gen types typescript \
-            --workdir /tmp/supabase \
-            --db-url "postgresql://postgres:postgres@localhost:54322/postgres" \
+            --local \
             --schema public \
             > src/types/supabase.ts
 
       - name: Fail if types are out of date
         shell: bash
+        working-directory: salon6-kiosk
         run: |
           set -euo pipefail
           git diff --exit-code -- src/types/supabase.ts
