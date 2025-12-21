@@ -52,7 +52,7 @@ jobs:
           mkdir -p src/types
           supabase gen types typescript \
             --workdir /tmp/supabase \
-            --local \
+            --db-url "postgresql://postgres:postgres@localhost:54322/postgres" \
             --schema public \
             > src/types/supabase.ts
 
