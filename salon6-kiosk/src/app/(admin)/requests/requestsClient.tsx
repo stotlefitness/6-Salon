@@ -53,11 +53,47 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<BookingRequest["status"] | "all">("new");
 
   const openCount = useMemo(
     () => requests.filter((r) => r.status === "new" || r.status === "in_progress").length,
     [requests]
   );
+
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return requests;
+    return requests.filter((r) => r.status === statusFilter);
+  }, [requests, statusFilter]);
+
+  const statusPill = (value: BookingRequest["status"]) => (
+    <button
+      key={value}
+      onClick={() => setStatusFilter(value)}
+      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+        statusFilter === value
+          ? "bg-zinc-900 text-white"
+          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+      }`}
+    >
+      {value.replace(/_/g, " ")}
+    </button>
+  );
+
+  const nextActions = (status: BookingRequest["status"]) => {
+    if (status === "new") return { label: "Start triage", next: "in_progress" as const };
+    if (status === "in_progress")
+      return { label: "Mark scheduled in Phorest", next: "scheduled_in_phorest" as const };
+    return { label: "Close", next: "closed" as const };
+  };
+
+  function updatedAgo(ts: string) {
+    const minutes = Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 60000));
+    if (minutes < 1) return "just now";
+    if (minutes === 1) return "1 minute ago";
+    if (minutes < 60) return `${minutes} minutes ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  }
 
   function updateDraft(id: string, patch: Partial<Draft>) {
     setDrafts((prev) => ({
@@ -120,6 +156,21 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
         </p>
       </header>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Filter</span>
+        {STATUS_OPTIONS.map((s) => statusPill(s))}
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+            statusFilter === "all"
+              ? "bg-zinc-900 text-white"
+              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+          }`}
+        >
+          all
+        </button>
+      </div>
+
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
@@ -127,13 +178,14 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
       )}
 
       <section className="grid gap-4">
-        {requests.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-600">
-            No booking requests yet.
+            No booking requests in this view.
           </div>
         ) : (
-          requests.map((req) => {
+          filtered.map((req) => {
             const draft = drafts[req.id];
+            const action = nextActions(req.status);
             return (
               <article
                 key={req.id}
@@ -159,11 +211,36 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                       <p className="text-sm text-zinc-600">Client note: {req.notes}</p>
                     )}
                     <p className="text-xs text-zinc-500">
-                      Created {new Date(req.created_at).toLocaleString()}
+                      Updated {updatedAgo(req.updated_at)} • Created{" "}
+                      {new Date(req.created_at).toLocaleString()}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-2 sm:items-end">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => {
+                          updateDraft(req.id, { status: action.next });
+                          save(req.id);
+                        }}
+                        disabled={savingId === req.id}
+                        className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+                      >
+                        {action.label}
+                      </button>
+                      {req.status !== "closed" && (
+                        <button
+                          onClick={() => {
+                            updateDraft(req.id, { status: "closed" });
+                            save(req.id);
+                          }}
+                          disabled={savingId === req.id}
+                          className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-zinc-300 disabled:cursor-not-allowed disabled:bg-zinc-100"
+                        >
+                          Close
+                        </button>
+                      )}
+                    </div>
                     <label className="flex flex-col gap-1 text-sm text-zinc-800">
                       Status
                       <select
@@ -192,11 +269,10 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                       Phorest appt ID
                       <input
                         value={draft?.phorest_appointment_id ?? ""}
-                        onChange={(e) =>
-                          updateDraft(req.id, { phorest_appointment_id: e.target.value })
-                        }
+                        onChange={(e) => updateDraft(req.id, { phorest_appointment_id: e.target.value })}
                         className="w-72 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
                         placeholder="Optional"
+                        disabled={req.status !== "scheduled_in_phorest" && (draft?.status ?? req.status) !== "scheduled_in_phorest"}
                       />
                     </label>
                     <button
