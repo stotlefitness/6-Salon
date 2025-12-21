@@ -46,7 +46,7 @@ jobs:
           git diff --exit-code -- salon6-kiosk/src/types/supabase.ts
 
       - name: Upload generated supabase.ts artifact
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: supabase-types
