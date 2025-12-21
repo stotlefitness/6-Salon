@@ -9,12 +9,17 @@ on:
 jobs:
   supabase-types:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: salon6-kiosk
     permissions:
       contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -29,26 +34,29 @@ jobs:
       - name: Login (access token)
         run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" --no-browser
 
+      - name: Reset local database (apply migrations)
+        run: supabase db reset --force
+
       - name: Generate types
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p salon6-kiosk/src/types
+          mkdir -p src/types
           supabase gen types typescript \
-            --project-id "${{ secrets.SUPABASE_PROJECT_REF }}" \
+            --local \
             --schema public \
-            > salon6-kiosk/src/types/supabase.ts
+            > src/types/supabase.ts
 
       - name: Fail if types are out of date
         shell: bash
         run: |
           set -euo pipefail
-          git diff --exit-code -- salon6-kiosk/src/types/supabase.ts
+          git diff --exit-code -- src/types/supabase.ts
 
       - name: Upload generated supabase.ts artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: supabase-types
-          path: salon6-kiosk/src/types/supabase.ts
+          path: src/types/supabase.ts
 
