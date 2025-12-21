@@ -64,5 +64,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: supabase-types
-          path: src/types/supabase.ts
+          path: salon6-kiosk/src/types/supabase.ts
 
