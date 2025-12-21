@@ -25,7 +25,7 @@ jobs:
           test -n "${{ secrets.SUPABASE_PROJECT_REF }}" || (echo "Missing SUPABASE_PROJECT_REF" && exit 1)
 
       - name: Login
-        run: supabase login --access-token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
 
       - name: Generate types from hosted project
         working-directory: salon6-kiosk
@@ -37,6 +37,16 @@ jobs:
             --project-id "${{ secrets.SUPABASE_PROJECT_REF }}" \
             --schema public \
             > src/types/supabase.ts
+
+      - name: Sanity check generated types contain expected tables/fields
+        working-directory: salon6-kiosk
+        run: |
+          set -euo pipefail
+          grep -q "booking_requests" src/types/supabase.ts
+          grep -q "request_source" src/types/supabase.ts
+          grep -q "phorest_appointment_id" src/types/supabase.ts
+          grep -q "last_stripe_event_id" src/types/supabase.ts
+          grep -q "visit_source" src/types/supabase.ts
 
       - name: Upload generated types artifact
         uses: actions/upload-artifact@v4
