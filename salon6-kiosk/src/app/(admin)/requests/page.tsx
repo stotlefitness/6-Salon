@@ -5,6 +5,7 @@ import RequestsClient from "./requestsClient";
 export default async function RequestsPage() {
   const staff = await requireStaffContext();
   const supabase = await createSupabaseServerClient();
+  const fetchedAt = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("booking_requests")
@@ -23,6 +24,7 @@ export default async function RequestsPage() {
       salonId={staff.salonId}
       initialRequests={data ?? []}
       staffRole={staff.role}
+      initialFetchedAt={fetchedAt}
     />
   );
 }

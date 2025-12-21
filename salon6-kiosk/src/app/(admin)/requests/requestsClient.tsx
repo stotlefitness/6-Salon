@@ -35,9 +35,15 @@ type Props = {
   salonId: string;
   staffRole: string;
   initialRequests: BookingRequest[];
+  initialFetchedAt: string;
 };
 
-export default function RequestsClient({ salonId, staffRole, initialRequests }: Props) {
+export default function RequestsClient({
+  salonId,
+  staffRole,
+  initialRequests,
+  initialFetchedAt,
+}: Props) {
   const [requests, setRequests] = useState<BookingRequest[]>(initialRequests);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
     Object.fromEntries(
@@ -54,6 +60,7 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<BookingRequest["status"] | "all">("new");
+  const [toast, setToast] = useState<string | null>(null);
 
   const openCount = useMemo(
     () => requests.filter((r) => r.status === "new" || r.status === "in_progress").length,
@@ -102,9 +109,35 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
     }));
   }
 
-  async function save(id: string) {
+  async function save(
+    id: string,
+    opts?: {
+      optimisticStatus?: BookingRequest["status"];
+      optimisticNote?: string;
+      optimisticPhorestId?: string;
+    }
+  ) {
     const draft = drafts[id];
     if (!draft) return;
+    const previousRequests = requests;
+    const previousDrafts = drafts;
+
+    // Optimistic apply
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: opts?.optimisticStatus ?? draft.status,
+              staff_note: opts?.optimisticNote ?? draft.staff_note ?? r.staff_note,
+              phorest_appointment_id:
+                opts?.optimisticPhorestId ?? draft.phorest_appointment_id ?? r.phorest_appointment_id,
+              updated_at: new Date().toISOString(),
+            }
+          : r
+      )
+    );
+
     setSavingId(id);
     setError(null);
     try {
@@ -131,9 +164,14 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
         });
       }
     } catch (err) {
+      // rollback optimistic change
+      setRequests(previousRequests);
+      setDrafts(previousDrafts);
       setError((err as Error).message);
+      setToast("Couldn’t save — try again.");
     } finally {
       setSavingId(null);
+      setTimeout(() => setToast(null), 3000);
     }
   }
 
@@ -171,6 +209,11 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
         </button>
       </div>
 
+      {toast && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {toast}
+        </div>
+      )}
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
@@ -180,7 +223,10 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
       <section className="grid gap-4">
         {filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-600">
-            No booking requests in this view.
+            {statusFilter === "new" ? "No new requests." : "No booking requests in this view."}
+            <div className="mt-2 text-xs text-zinc-500">
+              Last refreshed {new Date(initialFetchedAt).toLocaleString()}
+            </div>
           </div>
         ) : (
           filtered.map((req) => {
@@ -221,7 +267,7 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                       <button
                         onClick={() => {
                           updateDraft(req.id, { status: action.next });
-                          save(req.id);
+                          save(req.id, { optimisticStatus: action.next });
                         }}
                         disabled={savingId === req.id}
                         className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
@@ -232,7 +278,7 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                         <button
                           onClick={() => {
                             updateDraft(req.id, { status: "closed" });
-                            save(req.id);
+                            save(req.id, { optimisticStatus: "closed" });
                           }}
                           disabled={savingId === req.id}
                           className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-zinc-300 disabled:cursor-not-allowed disabled:bg-zinc-100"
@@ -246,6 +292,7 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                       <select
                         value={draft?.status ?? req.status}
                         onChange={(e) => updateDraft(req.id, { status: e.target.value as Draft["status"] })}
+                        disabled={savingId === req.id}
                         className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
                       >
                         {STATUS_OPTIONS.map((status) => (
@@ -261,6 +308,7 @@ export default function RequestsClient({ salonId, staffRole, initialRequests }: 
                         rows={2}
                         value={draft?.staff_note ?? ""}
                         onChange={(e) => updateDraft(req.id, { staff_note: e.target.value })}
+                        disabled={savingId === req.id}
                         className="w-72 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
                         placeholder="Notes for the team"
                       />
