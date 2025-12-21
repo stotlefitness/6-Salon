@@ -31,6 +31,11 @@ create table if not exists public.booking_requests (
   updated_at timestamptz not null default now()
 );
 
+-- Backfill columns in case table already existed without them
+alter table public.booking_requests add column if not exists phone text;
+update public.booking_requests set phone = coalesce(phone, '') where phone is null;
+alter table public.booking_requests alter column phone set not null;
+
 -- 3) Indexes
 create index if not exists booking_requests_salon_created_idx
   on public.booking_requests (salon_id, created_at desc);

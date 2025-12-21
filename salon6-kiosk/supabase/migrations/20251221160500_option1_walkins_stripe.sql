@@ -56,16 +56,16 @@ drop policy if exists "staff manage visits in salon" on public.visits;
 drop policy if exists "service role full access visits" on public.visits;
 
 -- Service role full access
-create policy if not exists "service role full access visits" on public.visits
+create policy "service role full access visits" on public.visits
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 -- Staff scoped to visits.salon_id
-create policy if not exists "staff view visits in salon" on public.visits
+create policy "staff view visits in salon" on public.visits
   for select using (exists (
     select 1 from public.staff_users su
     where su.user_id = auth.uid() and su.salon_id = public.visits.salon_id
   ));
-create policy if not exists "staff manage visits in salon" on public.visits
+create policy "staff manage visits in salon" on public.visits
   for all using (exists (
     select 1 from public.staff_users su
     where su.user_id = auth.uid() and su.salon_id = public.visits.salon_id
@@ -75,10 +75,10 @@ create policy if not exists "staff manage visits in salon" on public.visits
   ));
 
 -- RLS for stripe_events (service role + staff per checkout_session.salon_id)
-create policy if not exists "service role full access stripe_events" on public.stripe_events
+create policy "service role full access stripe_events" on public.stripe_events
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
-create policy if not exists "staff view stripe_events via session" on public.stripe_events
+create policy "staff view stripe_events via session" on public.stripe_events
   for select using (exists (
     select 1 from public.staff_users su
     join public.checkout_sessions cs on cs.id = public.stripe_events.checkout_session_id

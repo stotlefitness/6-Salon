@@ -3,8 +3,8 @@
 alter table public.checkout_line_items
   alter column quantity set not null,
   alter column unit_price_cents set not null,
-  add constraint if not exists checkout_line_items_quantity_positive check (quantity > 0),
-  add constraint if not exists checkout_line_items_unit_price_nonnegative check (unit_price_cents >= 0);
+  add constraint checkout_line_items_quantity_positive check (quantity > 0),
+  add constraint checkout_line_items_unit_price_nonnegative check (unit_price_cents >= 0);
 
 -- FK already exists; ensure on delete cascade (re-create if needed)
 do $$

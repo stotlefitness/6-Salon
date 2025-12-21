@@ -94,23 +94,23 @@ alter table if exists checkout_sessions enable row level security;
 alter table if exists checkout_line_items enable row level security;
 
 -- RLS: service role full access
-create policy if not exists "service role full access visits" on visits
+create policy "service role full access visits" on visits
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access booking_requests" on booking_requests
+create policy "service role full access booking_requests" on booking_requests
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access checkout_sessions" on checkout_sessions
+create policy "service role full access checkout_sessions" on checkout_sessions
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access checkout_line_items" on checkout_line_items
+create policy "service role full access checkout_line_items" on checkout_line_items
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 -- RLS: staff scoped to their salon via staff_users.salon_id
-create policy if not exists "staff view visits in salon" on visits
+create policy "staff view visits in salon" on visits
   for select using (exists (
     select 1 from staff_users su
     join bookings b on b.id = visits.booking_id
     where su.user_id = auth.uid() and su.salon_id = b.salon_id
   ));
-create policy if not exists "staff manage visits in salon" on visits
+create policy "staff manage visits in salon" on visits
   for all using (exists (
     select 1 from staff_users su
     join bookings b on b.id = visits.booking_id
@@ -121,12 +121,12 @@ create policy if not exists "staff manage visits in salon" on visits
     where su.user_id = auth.uid() and su.salon_id = b.salon_id
   ));
 
-create policy if not exists "staff view booking_requests in salon" on booking_requests
+create policy "staff view booking_requests in salon" on booking_requests
   for select using (exists (
     select 1 from staff_users su
     where su.user_id = auth.uid() and su.salon_id = booking_requests.salon_id
   ));
-create policy if not exists "staff manage booking_requests in salon" on booking_requests
+create policy "staff manage booking_requests in salon" on booking_requests
   for all using (exists (
     select 1 from staff_users su
     where su.user_id = auth.uid() and su.salon_id = booking_requests.salon_id
@@ -135,12 +135,12 @@ create policy if not exists "staff manage booking_requests in salon" on booking_
     where su.user_id = auth.uid() and su.salon_id = booking_requests.salon_id
   ));
 
-create policy if not exists "staff view checkout_sessions in salon" on checkout_sessions
+create policy "staff view checkout_sessions in salon" on checkout_sessions
   for select using (exists (
     select 1 from staff_users su
     where su.user_id = auth.uid() and su.salon_id = checkout_sessions.salon_id
   ));
-create policy if not exists "staff manage checkout_sessions in salon" on checkout_sessions
+create policy "staff manage checkout_sessions in salon" on checkout_sessions
   for all using (exists (
     select 1 from staff_users su
     where su.user_id = auth.uid() and su.salon_id = checkout_sessions.salon_id
@@ -149,13 +149,13 @@ create policy if not exists "staff manage checkout_sessions in salon" on checkou
     where su.user_id = auth.uid() and su.salon_id = checkout_sessions.salon_id
   ));
 
-create policy if not exists "staff view checkout_line_items in salon" on checkout_line_items
+create policy "staff view checkout_line_items in salon" on checkout_line_items
   for select using (exists (
     select 1 from staff_users su
     join checkout_sessions cs on cs.id = checkout_line_items.checkout_session_id
     where su.user_id = auth.uid() and su.salon_id = cs.salon_id
   ));
-create policy if not exists "staff manage checkout_line_items in salon" on checkout_line_items
+create policy "staff manage checkout_line_items in salon" on checkout_line_items
   for all using (exists (
     select 1 from staff_users su
     join checkout_sessions cs on cs.id = checkout_line_items.checkout_session_id

@@ -149,19 +149,19 @@ alter table if exists bookings enable row level security;
 alter table if exists booking_services enable row level security;
 alter table if exists payments enable row level security;
 
-create policy if not exists "service role full access customers" on customers
+create policy "service role full access customers" on customers
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access stylists" on stylists
+create policy "service role full access stylists" on stylists
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access services" on services
+create policy "service role full access services" on services
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access products" on products
+create policy "service role full access products" on products
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access bookings" on bookings
+create policy "service role full access bookings" on bookings
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access booking_services" on booking_services
+create policy "service role full access booking_services" on booking_services
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
-create policy if not exists "service role full access payments" on payments
+create policy "service role full access payments" on payments
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 
