@@ -1,6 +1,6 @@
 "use client";
 
-import { useStaff } from "@/lib/staff-context";
+import { useStaff } from "@/lib/staff-context.client";
 
 export default function StylistsPage() {
   const staff = useStaff();
@@ -28,4 +28,5 @@ export default function StylistsPage() {
     </main>
   );
 }
+
 

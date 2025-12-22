@@ -28,8 +28,22 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        router.push("/admin/dashboard");
-        router.refresh();
+        // Verify session is established
+        const { data: { session }, error: sessionError } = await supabaseBrowserClient.auth.getSession();
+        console.log("Login result:", {
+          hasUser: !!data.user,
+          hasSession: !!session,
+          sessionError: sessionError?.message,
+        });
+        
+        if (session) {
+          console.log("Session established, redirecting to /admin");
+          // Use window.location for full page reload to ensure cookies are sent
+          window.location.href = "/admin";
+        } else {
+          console.error("No session after login:", sessionError);
+          setError("Session not established. Please try again.");
+        }
       }
     } catch (err) {
       setError((err as Error).message);
@@ -101,3 +115,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

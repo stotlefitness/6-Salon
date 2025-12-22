@@ -1,127 +1,132 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const SALON_ID =
   process.env.NEXT_PUBLIC_KIOSK_SALON_ID ??
   "00000000-0000-0000-0000-000000000001";
 const FRONT_DESK_MESSAGE = "Something went wrong. Please see the front desk.";
+const SUCCESS_RESET_MS = 8_000;
 
-type BookingSummary = {
-  id: string;
-  startTime: string;
-  endTime: string | null;
-  status: string;
-  serviceName?: string;
-  stylistName?: string | null;
+type CheckInSuccess = {
+  success: true;
+  visitId: string;
+  checkedInAt: string;
 };
 
-type ApiResult =
-  | { status: "NO_CUSTOMER" | "NO_BOOKING_TODAY"; message: string }
-  | { status: "MULTIPLE"; bookings: BookingSummary[] }
-  | { status: "CHECKED_IN"; booking: BookingSummary }
-  | { error: string };
+type CheckInError = { error: string };
 
-function formatTimeLabel(value?: string | null) {
-  if (!value) return "";
-  return new Date(value).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+type FormState = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+};
+
+type FormErrors = Partial<FormState> & { general?: string };
+
+function countDigits(value: string) {
+  return value.replace(/\D/g, "").length;
 }
 
 export default function CheckInPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [result, setResult] = useState<ApiResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>({
+    firstName: "",
+    lastName: "",
+    phone: "",
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<CheckInSuccess | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (result && "status" in result && result.status === "CHECKED_IN") {
-      const timer = setTimeout(() => router.push("/kiosk"), 5000);
-      return () => clearTimeout(timer);
+  const validate = (): boolean => {
+    const nextErrors: FormErrors = {};
+    if (!form.firstName.trim()) {
+      nextErrors.firstName = "First name is required.";
     }
-    return;
-  }, [result, router]);
+    if (!form.lastName.trim()) {
+      nextErrors.lastName = "Last name is required.";
+    }
+    if (!form.phone.trim()) {
+      nextErrors.phone = "Phone number is required.";
+    } else if (countDigits(form.phone) < 10) {
+      nextErrors.phone = "Enter at least 10 digits.";
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
-  const multipleBookings =
-    result && "status" in result && result.status === "MULTIPLE"
-      ? result.bookings
-      : null;
-
-  const alreadyCheckedIn =
-    result &&
-    "status" in result &&
-    result.status === "CHECKED_IN" &&
-    "booking" in result &&
-    result.booking.status === "checked_in";
+  const resetForm = () => {
+    setForm({ firstName: "", lastName: "", phone: "" });
+    setErrors({});
+    setSuccess(null);
+    setCountdown(null);
+  };
 
   const handleSubmit = async (evt: React.FormEvent<HTMLFormElement>) => {
     evt.preventDefault();
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    if (!validate()) return;
+    setSubmitting(true);
+    setErrors({});
 
     try {
       const res = await fetch("/api/kiosk/check-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salonId: SALON_ID, phone, lastName }),
+        body: JSON.stringify({
+          salonId: SALON_ID,
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          phone: form.phone.trim(),
+        }),
       });
-      const json = (await res.json()) as ApiResult;
-      if (!res.ok) {
-        setError("error" in json ? json.error : FRONT_DESK_MESSAGE);
+
+      const json = (await res.json().catch(() => ({}))) as
+        | CheckInSuccess
+        | CheckInError
+        | Record<string, unknown>;
+
+      if (!res.ok || !("success" in json)) {
+        setErrors({
+          general:
+            "error" in json && typeof json.error === "string"
+              ? json.error
+              : FRONT_DESK_MESSAGE,
+        });
         return;
       }
-      setResult(json);
+
+      setSuccess(json);
+      setCountdown(Math.floor(SUCCESS_RESET_MS / 1000));
     } catch {
-      setError(FRONT_DESK_MESSAGE);
+      setErrors({ general: FRONT_DESK_MESSAGE });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const confirmBooking = async (bookingId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/kiosk/check-in/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salonId: SALON_ID, bookingId }),
-      });
-      const json = (await res.json()) as ApiResult;
-      if (!res.ok) {
-        setError("error" in json ? json.error : FRONT_DESK_MESSAGE);
-        return;
-      }
-      setResult(json);
-    } catch {
-      setError(FRONT_DESK_MESSAGE);
-    } finally {
-      setLoading(false);
+  // Success countdown back to kiosk home
+  useEffect(() => {
+    if (!success || countdown === null) return;
+    if (countdown <= 0) {
+      resetForm();
+      router.push("/kiosk");
+      return;
     }
-  };
+    const t = setTimeout(() => setCountdown((c) => (c ?? 1) - 1), 1_000);
+    return () => clearTimeout(t);
+  }, [countdown, success, router]);
 
-  const headline = useMemo(() => {
-    if (result && "status" in result) {
-      switch (result.status) {
-        case "CHECKED_IN":
-          return alreadyCheckedIn ? "You're already checked in" : "You're checked in!";
-        case "MULTIPLE":
-          return "Select your appointment";
-        case "NO_CUSTOMER":
-        case "NO_BOOKING_TODAY":
-          return "We couldn't find your booking";
-        default:
-          return "Find your booking";
-      }
-    }
-    return "Find your booking";
-  }, [alreadyCheckedIn, result]);
+  const headline = success ? "You’re checked in." : "Check in";
+  const subtext = success
+    ? "Please have a seat—front desk will call you shortly."
+    : "Let us know you’re here and we’ll get you checked in.";
+
+  const inputClasses =
+    "mt-2 w-full rounded-lg border border-zinc-300 bg-white p-3 text-base text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200";
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-zinc-50 p-8 text-zinc-900">
@@ -131,123 +136,106 @@ export default function CheckInPage() {
             Check in
           </p>
           <h1 className="text-3xl font-semibold">{headline}</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Enter the phone number and last name on your booking.
-          </p>
+          <p className="mt-2 text-sm text-zinc-600">{subtext}</p>
+          {success && countdown !== null ? (
+            <p className="mt-1 text-xs text-zinc-500">
+              Returning to home in {countdown}s
+            </p>
+          ) : null}
         </div>
 
-        <form
-          className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
-          onSubmit={handleSubmit}
-        >
-          <label className="block text-left text-sm font-medium text-zinc-700">
-            Phone number
-            <input
-              type="tel"
-              inputMode="tel"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-zinc-300 bg-white p-3 text-base text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              placeholder="(555) 010-0100"
-            />
-          </label>
-          <label className="block text-left text-sm font-medium text-zinc-700">
-            Last name
-            <input
-              type="text"
-              required
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-zinc-300 bg-white p-3 text-base text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              placeholder="Last name"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+        {!success && (
+          <form
+            className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+            onSubmit={handleSubmit}
+            noValidate
           >
-            {loading ? "Searching..." : "Find my appointment"}
-          </button>
-        </form>
+            <label className="block text-left text-sm font-medium text-zinc-700">
+              First name
+              <input
+                type="text"
+                autoComplete="given-name"
+                value={form.firstName}
+                onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                className={inputClasses}
+                placeholder="First name"
+              />
+              {errors.firstName && (
+                <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>
+              )}
+            </label>
+            <label className="block text-left text-sm font-medium text-zinc-700">
+              Last name
+              <input
+                type="text"
+                autoComplete="family-name"
+                value={form.lastName}
+                onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                className={inputClasses}
+                placeholder="Last name"
+              />
+              {errors.lastName && (
+                <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>
+              )}
+            </label>
+            <label className="block text-left text-sm font-medium text-zinc-700">
+              Phone number
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                className={inputClasses}
+                placeholder="(555) 010-0100"
+              />
+              {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+            </label>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {submitting ? "Checking in..." : "Check in"}
+            </button>
+          </form>
+        )}
 
-        {error && (
+        {errors.general && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            {error}
+            {errors.general}
           </div>
         )}
 
-        {result && "status" in result && (
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-            {result.status === "NO_CUSTOMER" ||
-            result.status === "NO_BOOKING_TODAY" ? (
-              <div className="space-y-2 text-center">
-                <p className="text-base font-semibold text-zinc-900">
-                  {result.status === "NO_CUSTOMER"
-                    ? "No matching profile"
-                    : "No booking today"}
-                </p>
-                <p className="text-sm text-zinc-600">
-                  {result.message ||
-                    (result.status === "NO_CUSTOMER"
-                      ? "We couldn't find your profile. Please see the front desk."
-                      : "We couldn't find a booking for today. Please see the front desk.")}
-                </p>
-              </div>
-            ) : null}
-
-            {multipleBookings ? (
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-zinc-900">
-                  We found multiple bookings today. Pick the one you&apos;re here
-                  for.
-                </p>
-                <div className="space-y-2">
-                  {multipleBookings.map((booking) => (
-                    <button
-                      key={booking.id}
-                      onClick={() => confirmBooking(booking.id)}
-                      disabled={loading}
-                      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left shadow-sm transition hover:-translate-y-[1px] hover:bg-white"
-                    >
-                      <p className="text-base font-semibold text-zinc-900">
-                        {formatTimeLabel(booking.startTime)} —{" "}
-                        {booking.serviceName || "Service"}
-                      </p>
-                      <p className="text-sm text-zinc-600">
-                        {booking.stylistName || "Any stylist"}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {result.status === "CHECKED_IN" && "booking" in result ? (
-              <div className="space-y-2 text-center">
-                <p className="text-base font-semibold text-zinc-900">
-                  {alreadyCheckedIn ? "You're already checked in" : "You're checked in"}
-                </p>
-                <p className="text-sm text-zinc-600">
-                  {result.booking.serviceName || "Your service"} at{" "}
-                  {formatTimeLabel(result.booking.startTime)}
-                  {result.booking.stylistName
-                    ? ` with ${result.booking.stylistName}`
-                    : null}
-                  .
-                </p>
-                <p className="text-xs text-zinc-500">
-                  {alreadyCheckedIn
-                    ? "We already have you in the queue. Returning to home..."
-                    : "We&apos;ll bring you back shortly. Returning to home..."}
-                </p>
-              </div>
-            ) : null}
+        {success && (
+          <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-5 text-center shadow-sm">
+            <p className="text-base font-semibold text-zinc-900">You’re checked in.</p>
+            <p className="text-sm text-zinc-600">
+              Please have a seat—front desk will call you shortly.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/kiosk/front-desk"
+                className="flex w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+              >
+                Need help? Talk to front desk
+              </Link>
+              <button
+                type="button"
+                className="flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                onClick={() => {
+                  resetForm();
+                  router.push("/kiosk");
+                }}
+              >
+                Done
+              </button>
+            </div>
           </div>
         )}
       </div>
     </main>
   );
 }
+
 

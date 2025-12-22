@@ -4,21 +4,19 @@ import Link from "next/link";
 
 const tiles = [
   {
-    title: "I'm here for my appointment",
+    title: "Check in",
     href: "/kiosk/check-in",
-    description: "Find your booking and check in.",
+    description: "Let us know you’re here and we’ll get you seated.",
   },
   {
     title: "Book a visit",
     href: "/kiosk/book",
-    description: "Create a new appointment.",
-    disabled: true,
+    description: "Request a time if you still need an appointment.",
   },
   {
-    title: "Checkout",
-    href: "/kiosk/checkout",
-    description: "Pay and wrap up your visit.",
-    disabled: true,
+    title: "Talk to front desk",
+    href: "/kiosk/front-desk",
+    description: "Need help right now? We’ll come assist you.",
   },
 ];
 
@@ -32,8 +30,8 @@ export default function KioskHome() {
           </p>
           <h1 className="text-3xl font-semibold">Welcome to Salon 6</h1>
           <p className="max-w-xl text-sm text-zinc-600">
-            Choose check-in for existing bookings or book a new appointment.
-            Checkout is for after your service.
+            Choose check-in if you’re here, book a visit if you still need an appointment,
+            or talk to the front desk for help.
           </p>
         </div>
 
@@ -41,16 +39,13 @@ export default function KioskHome() {
           {tiles.map((tile) => (
             <Link
               key={tile.href}
-              href={tile.disabled ? "#" : tile.href}
-              aria-disabled={tile.disabled}
-              className={`rounded-xl border border-zinc-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
-                tile.disabled ? "pointer-events-none opacity-50" : ""
-              }`}
+              href={tile.href}
+              className="rounded-xl border border-zinc-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow"
             >
               <h2 className="text-lg font-semibold">{tile.title}</h2>
               <p className="mt-2 text-sm text-zinc-600">{tile.description}</p>
               <p className="mt-4 text-xs uppercase tracking-[0.15em] text-zinc-500">
-                {tile.disabled ? "Coming soon" : "Start"}
+                Start
               </p>
             </Link>
           ))}
@@ -59,4 +54,5 @@ export default function KioskHome() {
     </main>
   );
 }
+
 

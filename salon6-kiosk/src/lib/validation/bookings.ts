@@ -5,8 +5,9 @@ export const DEFAULT_TIMEZONE = "America/Detroit";
 
 export const checkInSchema = z.object({
   salonId: z.string().uuid(),
-  phone: z.string().min(PHONE_MIN_DIGITS, "Phone is required"),
+  firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  phone: z.string().min(PHONE_MIN_DIGITS, "Phone is required"),
 });
 
 export const confirmCheckInSchema = z.object({
@@ -98,4 +99,5 @@ export function getTodayRange(
     end: new Date(endUtc),
   };
 }
+
 

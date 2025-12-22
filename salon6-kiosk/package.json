@@ -11,7 +11,8 @@
     "test": "npm run lint && npm run typecheck && npm run test:unit",
     "test:unit": "tsx --test src/lib/validation/__tests__/bookings.test.ts src/app/api/kiosk/check-in/__tests__/helpers.test.ts src/lib/__tests__/visits-uniqueness.test.ts src/app/api/stripe/__tests__/webhook-idempotency.test.ts src/app/api/booking-requests/__tests__/handlers.test.ts",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:seed": "node scripts/seed.mjs"
+    "db:seed": "node scripts/seed.mjs",
+    "db:create-admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -2,7 +2,21 @@
 
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import type { StaffContextValue } from "./staff-context";
+
+export type SupabaseRole = "owner" | "manager" | "stylist" | "frontdesk";
+
+export type StaffContextValue = {
+  user: {
+    id: string;
+    email: string | null;
+  };
+  userId: string;
+  email: string | null;
+  role: SupabaseRole;
+  salonId: string;
+  staffId: string;
+  displayName: string;
+};
 
 const StaffContext = createContext<StaffContextValue | null>(null);
 
@@ -22,5 +36,6 @@ export function useStaff() {
   }
   return ctx;
 }
+
 
 

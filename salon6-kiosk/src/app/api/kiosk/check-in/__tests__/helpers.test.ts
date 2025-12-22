@@ -1,107 +1,144 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { transitionToCheckedIn } from "../helpers";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { findOrCreateCustomer, recordVisit } from "../helpers";
 
-type SupabaseResponse = { data: unknown; error: Error | null };
+type MaybeSingleResponse<T> = { data: T | null; error: Error | null };
 
-function chainUpdate(response: SupabaseResponse) {
-  return {
-    eq() {
-      return this;
-    },
-    select() {
-      return Promise.resolve(response);
-    },
-  };
-}
-
-function chainSelect(response: SupabaseResponse) {
-  return {
-    eq() {
-      return this;
-    },
-    single() {
-      return Promise.resolve(response);
-    },
-  };
-}
-
-function createSupabaseMock({
-  update,
-  latest,
-}: {
-  update: SupabaseResponse;
-  latest: SupabaseResponse;
+function createCustomersSupabaseMock(options: {
+  lookup: MaybeSingleResponse<{ id: string }>;
+  insert: MaybeSingleResponse<{ id: string }>;
 }) {
-  return {
+  let capturedInsert: unknown = null;
+  const supabase = {
     from(table: string) {
-      assert.equal(table, "bookings");
+      assert.equal(table, "customers");
       return {
-        update() {
-          return chainUpdate(update);
-        },
         select() {
-          return chainSelect(latest);
+          return {
+            eq() {
+              return this;
+            },
+            ilike() {
+              return this;
+            },
+            limit() {
+              return this;
+            },
+            maybeSingle: () => Promise.resolve(options.lookup),
+          };
+        },
+        insert(payload: unknown) {
+          capturedInsert = payload;
+          return {
+            select() {
+              return {
+                single: () => Promise.resolve(options.insert),
+              };
+            },
+          };
         },
       };
     },
-  } as unknown as SupabaseClient;
+  };
+
+  return { supabase, getInsertedPayload: () => capturedInsert };
 }
 
-const baseBooking = {
-  id: "booking-1",
-  service_id: "svc",
-  stylist_id: null,
-  start_time: "2025-01-01T10:00:00Z",
-  end_time: "2025-01-01T11:00:00Z",
-  status: "scheduled",
-  checked_in_at: null,
-};
+function createVisitsSupabaseMock(options: {
+  insert: MaybeSingleResponse<{ id: string; checked_in_at: string }>;
+}) {
+  let capturedInsert: unknown = null;
+  const supabase = {
+    from(table: string) {
+      assert.equal(table, "visits");
+      return {
+        insert(payload: unknown) {
+          capturedInsert = payload;
+          return {
+            select() {
+              return {
+                single: () => Promise.resolve(options.insert),
+              };
+            },
+          };
+        },
+      };
+    },
+  };
 
-describe("transitionToCheckedIn", () => {
-  it("returns updated booking when scheduled", async () => {
-    const updated = { ...baseBooking, status: "checked_in", checked_in_at: "2025-01-01T10:05:00Z" };
-    const supabase = createSupabaseMock({
-      update: { data: [updated], error: null },
-      latest: { data: null, error: null },
+  return { supabase, getInsertedPayload: () => capturedInsert };
+}
+
+describe("findOrCreateCustomer", () => {
+  it("reuses an existing customer when found", async () => {
+    const mock = createCustomersSupabaseMock({
+      lookup: { data: { id: "cust-1" }, error: null },
+      insert: { data: null, error: null },
     });
 
-    const result = await transitionToCheckedIn(
-      baseBooking.id,
-      supabase as unknown as ReturnType<typeof createSupabaseMock>
-    );
-    assert.equal(result.booking?.status, "checked_in");
-    assert.equal(result.booking?.checked_in_at, updated.checked_in_at);
-    assert.equal(result.error, null);
+    const { customerId, error } = await findOrCreateCustomer({
+      salonId: "salon-1",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      normalizedLastName: "lovelace",
+      normalizedPhone: "+15550100100",
+      supabase: mock.supabase as any,
+    });
+
+    assert.equal(customerId, "cust-1");
+    assert.equal(error, null);
+    assert.equal(mock.getInsertedPayload(), null);
   });
 
-  it("is idempotent when already checked in", async () => {
-    const already = { ...baseBooking, status: "checked_in", checked_in_at: "2025-01-01T10:05:00Z" };
-    const supabase = createSupabaseMock({
-      update: { data: [] as typeof baseBooking[], error: null },
-      latest: { data: already, error: null },
+  it("creates a new customer when none exists", async () => {
+    const mock = createCustomersSupabaseMock({
+      lookup: { data: null, error: null },
+      insert: { data: { id: "cust-new" }, error: null },
     });
 
-    const result = await transitionToCheckedIn(
-      baseBooking.id,
-      supabase as unknown as ReturnType<typeof createSupabaseMock>
-    );
-    assert.equal(result.booking?.status, "checked_in");
-    assert.equal(result.error, null);
-  });
-
-  it("surfaces failure when nothing is updated or found", async () => {
-    const supabase = createSupabaseMock({
-      update: { data: [] as typeof baseBooking[], error: null },
-      latest: { data: null, error: new Error("not found") },
+    const { customerId, error } = await findOrCreateCustomer({
+      salonId: "salon-1",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      normalizedLastName: "lovelace",
+      normalizedPhone: "+15550100100",
+      supabase: mock.supabase as any,
     });
 
-    const result = await transitionToCheckedIn(
-      baseBooking.id,
-      supabase as unknown as ReturnType<typeof createSupabaseMock>
-    );
-    assert.equal(result.booking, null);
+    assert.equal(customerId, "cust-new");
+    assert.equal(error, null);
+    assert.deepEqual(mock.getInsertedPayload(), {
+      salon_id: "salon-1",
+      first_name: "Ada",
+      last_name: "Lovelace",
+      phone: "+15550100100",
+      phone_normalized: "+15550100100",
+    });
   });
 });
+
+describe("recordVisit", () => {
+  it("stores a walk-in visit and returns id + timestamp", async () => {
+    const mock = createVisitsSupabaseMock({
+      insert: { data: { id: "visit-1", checked_in_at: "2025-01-01T00:00:00Z" }, error: null },
+    });
+
+    const { visit, error } = await recordVisit({
+      salonId: "salon-1",
+      customerId: "cust-1",
+      supabase: mock.supabase as any,
+    });
+
+    assert.equal(visit?.id, "visit-1");
+    assert.equal(visit?.checked_in_at, "2025-01-01T00:00:00Z");
+    assert.equal(error, null);
+    const inserted = mock.getInsertedPayload() as Record<string, unknown>;
+    assert.equal(inserted.salon_id, "salon-1");
+    assert.equal(inserted.booking_id, null);
+    assert.equal(inserted.visit_source, "kiosk_walkin");
+    assert.equal(inserted.customer_id, "cust-1");
+    assert.equal(typeof inserted.checked_in_at, "string");
+  });
+});
+
 

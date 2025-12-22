@@ -19,7 +19,7 @@ export default function Home() {
         </a>
         <a
           className="rounded-lg border border-zinc-200 bg-white px-6 py-4 text-center text-base font-medium shadow-sm transition hover:border-zinc-300 hover:shadow"
-          href="/admin/dashboard"
+          href="/admin"
         >
           Open admin
         </a>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useStaff } from "@/lib/staff-context";
+import { useStaff } from "@/lib/staff-context.client";
 import { supabaseBrowserClient } from "@/lib/supabase-browser";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 

@@ -1,8 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-
-type SupabaseRole = "owner" | "manager" | "stylist" | "frontdesk";
+import type { SupabaseRole } from "./staff-context.client";
 
 function requireEnv(key: string): string {
   const value = process.env[key];
@@ -28,17 +27,16 @@ export async function createSupabaseServerClient() {
 
   return createServerClient(supabaseUrl, anonKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+      getAll() {
+        return cookieStore.getAll();
       },
-      /**
-       * In RSC we cannot set cookies; this client is read-only for auth checks.
-       */
-      set() {},
-      remove() {},
+      setAll() {
+        // In RSC we cannot set cookies; this is handled by middleware
+        // This is a no-op in Server Components
+      },
     },
   });
 }
 
-export type { SupabaseRole };
+
 
