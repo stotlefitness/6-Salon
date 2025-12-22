@@ -13,9 +13,19 @@ export const BodySchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+const logBookingRequest = (entry: Record<string, unknown>) => {
+  console.log(
+    JSON.stringify({
+      ctx: "booking_requests",
+      ...entry,
+    })
+  );
+};
+
 export async function POST(req: Request) {
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
+    logBookingRequest({ event: "create", result: "invalid_payload" });
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
@@ -33,6 +43,11 @@ export async function POST(req: Request) {
   try {
     payload = buildInsertPayload(parsed.data, kiosk.salonId);
   } catch {
+    logBookingRequest({
+      event: "create",
+      salon_id: kiosk.salonId,
+      result: "invalid_phone",
+    });
     return NextResponse.json({ error: "Invalid phone" }, { status: 400 });
   }
 
@@ -43,8 +58,22 @@ export async function POST(req: Request) {
     .single();
 
   if (error || !data) {
+    logBookingRequest({
+      event: "create",
+      salon_id: kiosk.salonId,
+      result: "failure",
+      reason: error?.message ?? "insert_failed",
+    });
     return NextResponse.json({ error: "Failed to create request" }, { status: 500 });
   }
+
+  logBookingRequest({
+    event: "create",
+    booking_request_id: data.id,
+    salon_id: kiosk.salonId,
+    status: data.status,
+    result: "success",
+  });
 
   return NextResponse.json({ bookingRequest: data }, { status: 201 });
 }
@@ -63,3 +92,4 @@ export function buildInsertPayload(body: z.infer<typeof BodySchema>, salonId: st
     status: "new",
   };
 }
+

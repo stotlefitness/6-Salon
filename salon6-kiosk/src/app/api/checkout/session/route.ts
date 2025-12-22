@@ -11,6 +11,15 @@ const payloadSchema = z.object({
   checkoutSessionId: z.string().uuid(),
 });
 
+const logCheckoutSession = (entry: Record<string, unknown>) => {
+  console.log(
+    JSON.stringify({
+      ctx: "checkout_session",
+      ...entry,
+    })
+  );
+};
+
 export async function POST(request: Request) {
   const supabase = createSupabaseServiceRoleClient();
   const stripe = getStripeClient();
@@ -54,6 +63,11 @@ export async function POST(request: Request) {
       .eq("salon_id", staff.salonId)
       .single();
     if (sessionError || !existingSession) {
+      logCheckoutSession({
+        event: "session_not_found",
+        checkout_session_id: checkoutSessionId,
+        salon_id: staff.salonId,
+      });
       return NextResponse.json({ error: "Checkout session not found" }, { status: 404 });
     }
     session = existingSession;
@@ -62,6 +76,13 @@ export async function POST(request: Request) {
   if (session.stripe_checkout_session_id) {
     const existing = await stripe.checkout.sessions.retrieve(session.stripe_checkout_session_id);
     if (existing?.status !== "expired" && existing?.url) {
+      logCheckoutSession({
+        event: "reused_existing",
+        branch: "reused_existing",
+        checkout_session_id: checkoutSessionId,
+        salon_id: session.salon_id,
+        stripe_checkout_session_id: session.stripe_checkout_session_id,
+      });
       return NextResponse.json({ url: existing.url });
     }
     // expired or unusable: proceed to create a new session
@@ -97,6 +118,8 @@ export async function POST(request: Request) {
     };
   });
 
+  const branch = session.stripe_checkout_session_id ? "recreated_expired" : "created_new";
+
   try {
     const stripeSession = await stripe.checkout.sessions.create(
       {
@@ -125,11 +148,27 @@ export async function POST(request: Request) {
       })
       .eq("id", checkoutSessionId);
 
+    logCheckoutSession({
+      event: "created_session",
+      branch,
+      checkout_session_id: checkoutSessionId,
+      salon_id: session.salon_id,
+      stripe_checkout_session_id: stripeSession.id,
+    });
+
     return NextResponse.json({ url: stripeSession.url });
-  } catch {
+  } catch (err) {
+    logCheckoutSession({
+      event: "create_failed",
+      branch,
+      checkout_session_id: checkoutSessionId,
+      salon_id: session.salon_id,
+      error: err instanceof Error ? err.message : "unknown_error",
+    });
     return NextResponse.json(
       { error: "Failed to create Stripe session" },
       { status: 500 }
     );
   }
 }
+

@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-server";
 import { getStripeClient } from "@/lib/stripe";
 
+const logWebhook = (entry: Record<string, unknown>) => {
+  console.log(
+    JSON.stringify({
+      ctx: "stripe_webhook",
+      ...entry,
+    })
+  );
+};
+
 export const runtime = "nodejs";
 
 function getWebhookSecret() {
@@ -15,6 +24,7 @@ function getWebhookSecret() {
 export async function POST(request: Request) {
   const sig = request.headers.get("stripe-signature");
   if (!sig) {
+    logWebhook({ phase: "missing_signature" });
     return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
   }
 
@@ -26,6 +36,7 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch {
+    logWebhook({ phase: "invalid_signature" });
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -43,6 +54,15 @@ export async function POST(request: Request) {
   const internalCheckoutId = sessionObject?.metadata?.checkout_session_id || null;
   const eventSalonId = sessionObject?.metadata?.salon_id || null;
 
+  logWebhook({
+    phase: "received",
+    stripe_event_id: event.id,
+    event_type: event.type,
+    stripe_session_id: checkoutSessionId,
+    internal_checkout_session_id: internalCheckoutId,
+    deduped: false,
+  });
+
   const { data: existingEvent } = await supabase
     .from("stripe_events")
     .select("event_id")
@@ -50,6 +70,14 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (existingEvent) {
+    logWebhook({
+      phase: "duplicate",
+      stripe_event_id: event.id,
+      event_type: event.type,
+      stripe_session_id: checkoutSessionId,
+      internal_checkout_session_id: internalCheckoutId,
+      deduped: true,
+    });
     return NextResponse.json({ received: true });
   }
 
@@ -60,6 +88,11 @@ export async function POST(request: Request) {
   });
 
   if (eventInsertError) {
+    logWebhook({
+      phase: "event_log_failed",
+      stripe_event_id: event.id,
+      error: eventInsertError.message,
+    });
     return NextResponse.json({ error: "Failed to log event" }, { status: 500 });
   }
 
@@ -82,10 +115,23 @@ export async function POST(request: Request) {
   }
 
   if (!sessionRow) {
+    logWebhook({
+      phase: "session_not_found",
+      stripe_event_id: event.id,
+      stripe_session_id: checkoutSessionId,
+      internal_checkout_session_id: internalCheckoutId,
+    });
     return NextResponse.json({ received: true });
   }
 
   if (eventSalonId && sessionRow.salon_id !== eventSalonId) {
+    logWebhook({
+      phase: "salon_mismatch",
+      stripe_event_id: event.id,
+      checkout_session_id: sessionRow.id,
+      event_salon_id: eventSalonId,
+      session_salon_id: sessionRow.salon_id,
+    });
     return NextResponse.json({ error: "salon mismatch" }, { status: 403 });
   }
 
@@ -125,6 +171,13 @@ export async function POST(request: Request) {
 
     if (data?.status) {
       sessionRow = { ...sessionRow!, status: data.status };
+      logWebhook({
+        phase: "status_update",
+        stripe_event_id: event.id,
+        checkout_session_id: sessionRow.id,
+        resulting_status: data.status,
+        event_type: event.type,
+      });
     }
   };
 

@@ -11,6 +11,15 @@ export const UpdateSchema = z.object({
   phorestAppointmentId: z.string().optional().nullable(),
 });
 
+const logBookingRequest = (entry: Record<string, unknown>) => {
+  console.log(
+    JSON.stringify({
+      ctx: "booking_requests",
+      ...entry,
+    })
+  );
+};
+
 export async function PATCH(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -64,8 +73,26 @@ export async function PATCH(
     .single();
 
   if (updateError || !updated) {
+    logBookingRequest({
+      event: "update",
+      booking_request_id: requestId,
+      salon_id: staff.salonId,
+      from_status: existing.status,
+      to_status: parsed.data.status ?? existing.status,
+      result: "failure",
+      reason: updateError?.message ?? "update_failed",
+    });
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
+
+  logBookingRequest({
+    event: "update",
+    booking_request_id: requestId,
+    salon_id: staff.salonId,
+    from_status: existing.status,
+    to_status: parsed.data.status ?? existing.status,
+    result: "success",
+  });
 
   return NextResponse.json({ bookingRequest: updated });
 }
@@ -73,3 +100,4 @@ export async function PATCH(
 export function isSameSalon(existingSalonId: string, staffSalonId: string) {
   return existingSalonId === staffSalonId;
 }
+
